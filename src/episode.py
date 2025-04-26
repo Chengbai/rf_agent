@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import matplotlib
 import random
 import torch
 
@@ -44,7 +45,7 @@ class Episode:
 
     def run_steps_by_policy(self, steps: int, debug: bool = False):
         for step in range(steps):
-            pred = self.policy.forward(torch.tensor(self.agent.state.to_tensor()))
+            pred = self.policy.forward(self.agent.state.to_tensor())
             action_idx = torch.argmax(pred)
             self.agent.take_action(
                 action=Action.create_from(config=self.config, action_idx=action_idx)
@@ -53,3 +54,6 @@ class Episode:
                 print(
                     f"step: {step}, pred: {pred.detach()}, sum_pred: {torch.sum(pred)}, action_idx: {action_idx}, state: {self.agent.state.to_tensor()}"
                 )
+
+    def viz(self, ax: matplotlib.axes._axes.Axes):
+        self.world.viz(ax=ax, agent=self.agent, config=self.config)
