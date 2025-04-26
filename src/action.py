@@ -11,8 +11,11 @@ class Action:
     action_idx: int | None
 
     @staticmethod
-    def create_from_config(config: Config) -> Action:
-        return Action(possible_actions=config.possible_actions)
+    def create_from(config: Config, action_idx: int) -> Action:
+        assert config is not None
+        assert 0 <= action_idx and action_idx < len(config.possible_actions)
+
+        return Action(possible_actions=config.possible_actions, action_idx=action_idx)
 
     def get_udpate(self):
         return self.possible_actions[self.action_idx]

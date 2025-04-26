@@ -6,4 +6,4 @@ class Config:
     world_max_y = 10
 
     # actions
-    actions = [(i, j) for i in range(-1, 2) for j in range(-1, 2)]
+    possible_actions = [(i, j) for i in range(-1, 2) for j in range(-1, 2)]

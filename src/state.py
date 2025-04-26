@@ -20,7 +20,7 @@ class State:
 
         return State(config=config, id=id, x=x, y=y)
 
-    def update_action(self, action: Action) -> State:
+    def take_action(self, action: Action) -> State:
         assert action is not None
 
         dx, dy = action.get_udpate()
