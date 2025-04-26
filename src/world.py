@@ -11,10 +11,10 @@ from src.state import State
 
 @dataclass
 class World:
-    x_min: int
-    x_max: int
-    y_min: int
-    y_max: int
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
 
     @staticmethod
     def create_from_config(config: Config) -> World:

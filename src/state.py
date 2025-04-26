@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import torch
 from dataclasses import dataclass
 
 from src.action import Action
@@ -10,11 +11,11 @@ from src.config import Config
 class State:
     config: Config
     id: str
-    x: int
-    y: int
+    x: float
+    y: float
 
     @staticmethod
-    def create_from(config: Config, id: str, x: int, y: int) -> State:
+    def create_from(config: Config, id: str, x: float, y: float) -> State:
         assert config is not None
         assert id
 
@@ -27,3 +28,6 @@ class State:
         self.x = min(max(self.x + dx, self.config.world_min_x), self.config.world_max_x)
         self.y = min(max(self.y + dy, self.config.world_min_y), self.config.world_max_y)
         return self
+
+    def to_tensor(self) -> torch.tensor:
+        return torch.tensor([self.x, self.y])
