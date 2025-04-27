@@ -24,3 +24,6 @@ class Agent:
         self.state.take_action(action=action)
         self.action_history.append(action)
         return self
+
+    def gain(self) -> float:
+        return sum([action.gain() for action in self.action_history])

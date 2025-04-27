@@ -15,7 +15,6 @@ class Policy(nn.Module):
             nn.Linear(config.input_features, config.intermedia_features, bias=True),
             nn.ReLU(),
             nn.Linear(config.intermedia_features, len(config.possible_actions)),
-            nn.Softmax(),
         )
 
     def forward(self, x: torch.tensor):

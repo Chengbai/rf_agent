@@ -51,7 +51,12 @@ class World:
             ya.append(y0 + dy)
             x0 += dx
             y0 += dy
-            ax.annotate(f"{idx}", xy=(x0, y0), xycoords="data", fontsize=12)
+            ax.annotate(
+                f"{idx}(P{action.prob.item()*100:.2f}%)",
+                xy=(x0, y0),
+                xycoords="data",
+                fontsize=12,
+            )
         ax.plot(xa, ya, marker="o", linestyle="--", color="red")
 
         # ax.set(
