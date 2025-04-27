@@ -36,15 +36,28 @@ class World:
         reward = max(0, state.x + action)
         return reward
 
-    def viz(self, ax: matplotlib.axes._axes.Axes, agent: Agent, config: Config):
+    def viz(
+        self,
+        ax: matplotlib.axes._axes.Axes,
+        agent: Agent,
+        config: Config,
+        color: str = "red",
+    ):
         assert ax is not None
         assert agent is not None
 
         x0 = agent.state.x
         y0 = agent.state.y
 
-        xa = []
-        ya = []
+        ax.annotate(
+            f"start",
+            xy=(x0, y0),
+            xycoords="data",
+            fontsize=12,
+        )
+
+        xa = [x0]
+        ya = [y0]
         for idx, action in enumerate(agent.action_history):
             dx, dy = action.get_udpate()
             xa.append(x0 + dx)
@@ -57,7 +70,7 @@ class World:
                 xycoords="data",
                 fontsize=12,
             )
-        ax.plot(xa, ya, marker="o", linestyle="--", color="red")
+        ax.plot(xa, ya, marker="o", linestyle="--", color=color)
 
         # ax.set(
         #     xlim=[config.world_min_x, config.world_max_x],

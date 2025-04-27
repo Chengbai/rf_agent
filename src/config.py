@@ -19,4 +19,5 @@ class Config:
     top_k: int = 5
 
     # policy training
-    epoches = 10
+    episode_steps: int = 10
+    iterations: int = 2
