@@ -30,4 +30,9 @@ class State:
         return self
 
     def to_tensor(self) -> torch.tensor:
-        return torch.tensor([self.x, self.y])
+        return torch.tensor(
+            [
+                self.x / (self.config.world_max_x - self.config.world_min_x),
+                self.y / (self.config.world_max_y - self.config.world_min_y),
+            ]
+        ).to(self.config.device)

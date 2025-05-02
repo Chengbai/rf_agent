@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib
+import numpy as np
 
 from dataclasses import dataclass
 from src.action import Action
@@ -46,14 +47,14 @@ class World:
         assert ax is not None
         assert agent is not None
 
-        x0 = agent.state.x
-        y0 = agent.state.y
+        x0 = agent.init_state.x
+        y0 = agent.init_state.y
 
         ax.annotate(
             f"start",
             xy=(x0, y0),
             xycoords="data",
-            fontsize=12,
+            fontsize=9,
         )
 
         xa = [x0]
@@ -68,9 +69,17 @@ class World:
                 f"{idx}(P{action.prob.item()*100:.2f}%)",
                 xy=(x0, y0),
                 xycoords="data",
-                fontsize=12,
+                fontsize=9,
             )
-        ax.plot(xa, ya, marker="o", linestyle="--", color=color)
+        # Sort data based on x-values
+        xa = np.array(xa)
+        ya = np.array(ya)
+        sorted_indices = np.argsort(xa)
+        xa_sorted = xa[sorted_indices]
+        ya_sorted = ya[sorted_indices]
+        ax.plot(xa_sorted, ya_sorted, marker="o", linestyle="--", color=color)
+        # print(f"xa_sorted: {xa_sorted}")
+        # print(f"ya_sorted: {ya_sorted}")
 
         # ax.set(
         #     xlim=[config.world_min_x, config.world_max_x],

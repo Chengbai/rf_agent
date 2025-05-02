@@ -16,6 +16,12 @@ class Policy(nn.Module):
             nn.ReLU(),
             nn.Linear(config.intermedia_features, len(config.possible_actions)),
         )
+        self._init_parameters()
+
+    def _init_parameters(self):
+        for layer in self.brain:
+            if isinstance(layer, nn.Linear):
+                nn.init.kaiming_uniform_(layer.weight)
 
     def forward(self, x: torch.tensor):
         assert x is not None
