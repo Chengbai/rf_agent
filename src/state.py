@@ -21,12 +21,33 @@ class State:
 
         return State(config=config, id=id, x=x, y=y)
 
+    def can_take_action(self, action: Action) -> bool:
+        dx, dy = action.get_udpate()
+        next_x = self.x + dx
+        next_y = self.y + dy
+
+        if (
+            next_x <= self.config.world_min_x
+            or next_x >= self.config.world_max_x
+            or next_y <= self.config.world_min_y
+            or next_y >= self.config.world_max_y
+        ):
+            return False
+
+        return True
+
     def take_action(self, action: Action) -> State:
         assert action is not None
 
+        assert self.can_take_action(action=action)
+
         dx, dy = action.get_udpate()
-        self.x = min(max(self.x + dx, self.config.world_min_x), self.config.world_max_x)
-        self.y = min(max(self.y + dy, self.config.world_min_y), self.config.world_max_y)
+        self.x = min(
+            max(self.x + dx, self.config.world_min_x), self.config.world_max_x - 1
+        )
+        self.y = min(
+            max(self.y + dy, self.config.world_min_y), self.config.world_max_y - 1
+        )
         return self
 
     def to_tensor(self) -> torch.tensor:

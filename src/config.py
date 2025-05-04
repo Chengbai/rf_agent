@@ -3,10 +3,12 @@ import torch
 
 class Config:
     # world
-    world_min_x: float = -100.0
+    world_min_x: float = 0.0
     world_max_x: float = 100.0
-    world_min_y: float = -100.0
-    world_max_y: float = 100.0
+    world_min_y: float = 0.0
+    world_max_y: float = 90.0
+    world_width: int = int(world_max_x - world_min_x)
+    world_height: int = int(world_max_y - world_min_y)
 
     # actions
     possible_actions: list[tuple[float, float]] = [
@@ -22,7 +24,7 @@ class Config:
     top_k: int = 5
 
     # GRPO policy training
-    episode_steps: int = 50
+    episode_steps: int = 20
     episodes_per_iteration: int = 200
 
     # EPSILON

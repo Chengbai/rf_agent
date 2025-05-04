@@ -27,8 +27,9 @@ class Agent:
     def take_action(self, action: Action) -> Agent:
         assert action is not None
 
-        self.state.take_action(action=action)
-        self.action_history.append(action)
+        if self.state.can_take_action(action=action):
+            self.state.take_action(action=action)
+            self.action_history.append(action)
         return self
 
     def reward(self) -> torch.tensor:
@@ -38,12 +39,16 @@ class Agent:
         # The chain of the action probability (CoA)
         # P(CoA) = a1.prob * a2.prob * ...
         # Log(P(CoA)) = log(a1.prob) + log(a2.prob) + ...
-        # NOTE: use 'sum' to track the gradient
+        # NOTE: use 'sum' to track the gradient\
+        if not self.action_history:
+            return torch.tensor([0.0])
         return sum([torch.log(action.prob) for action in self.action_history])
 
     def reward_prob(self) -> torch.tensor:
         # The chain of the action probability (CoA)
         # P(CoA) = a1.prob * a2.prob * ...
+        if not self.action_history:
+            return torch.tensor([0.0])
         prob = 1.0
         for action in self.action_history:
             prob *= action.prob
