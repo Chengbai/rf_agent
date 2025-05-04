@@ -28,7 +28,7 @@ def top_k_sampling(
     # logits = (logits - logits_mean) / logits_std
     logits = normalize_tensor(logits)
     logits_probs = F.softmax(logits, dim=-1)
-    print(f"logits_probs: {logits_probs}")
+    # print(f"logits_probs: {logits_probs}")
 
     values, indices = torch.topk(logits, k)
     # print(f"topk - k: {k}, values: {values}, indices: {indices}")
