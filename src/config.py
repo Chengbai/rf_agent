@@ -55,7 +55,7 @@ class Config:
     epsilon = 1e-5
 
     # Device
-    device = torch.device("cpu")
+    device = torch.device("mps")
 
     # Figure size
     figure_size: tuple[int, int] = (5, 5)

@@ -66,7 +66,7 @@ class EpisodeDataset(Dataset):
         assert batch_logit_prob is not None
         assert batch_top_k_prob is not None
         assert (
-            batch_episode_idices.shape[0]
+            len(batch_episode_idices)
             == batch_action_idx.shape[0]
             == batch_logit_prob.shape[0]
             == batch_top_k_prob.shape[0]

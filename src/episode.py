@@ -93,6 +93,7 @@ class Episode:
                 ],
                 dim=1,
             )
+            batch_features = batch_features.to(next(policy.parameters()).device)
 
             batch_logits = policy.forward(batch_features)
             batch_action_idx, batch_logit_prob, batch_top_k_prob = utils.top_k_sampling(

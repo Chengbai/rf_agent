@@ -1,6 +1,7 @@
 import io
 import matplotlib.pyplot as plt
 import PIL.Image
+from functools import partial
 
 import torch
 from torch.utils.data import DataLoader
@@ -12,7 +13,7 @@ from src.episode import Episode
 from src.episode_batch_reat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeDataset
 from src.policy import Policy
-from src.utils import get_color, top_k_sampling
+from src.utils import get_color, to_device_collate, top_k_sampling
 from src.reward_model import RewardModel
 
 
@@ -29,6 +30,7 @@ class GRPOTrainer:
 
         self.config = config
         self.policy = policy
+        self.policy.to(config.device)
         self.reward_model = reward_model
 
         self.optimizer = torch.optim.AdamW(policy.parameters(), lr=1, weight_decay=0.01)
@@ -42,10 +44,14 @@ class GRPOTrainer:
         )
         print(f"train_batch_repeat_sampler: {list(train_batch_repeat_sampler)}")
 
+        to_device_collate_configurable = partial(to_device_collate, self.config.device)
+
         train_dataloader = DataLoader(
             dataset,
             batch_size=self.config.train_batch_size,
             sampler=train_batch_repeat_sampler,
+            pin_memory=True,
+            collate_fn=to_device_collate_configurable,
         )
         return train_dataloader
 
@@ -56,7 +62,7 @@ class GRPOTrainer:
         step: int,
     ):
         assert batch_episode_idices is not None
-        assert batch_episode_idices.shape[0] > 0
+        assert len(batch_episode_idices) > 0
         assert dataset is not None
         assert dataset.split == "TRAIN"
 

@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.utils.data.dataloader import default_collate
 
 
 def normalize_min_max(batch_logits):
@@ -62,3 +63,14 @@ def top_k_sampling(
 def get_color(idx: int):
     colors = ["red", "green", "blue", "gray"]
     return colors[idx % len(colors)]
+
+
+def to_device_collate(device, batch: list[dict]):
+    batched_data = {}
+    for key in batch[0].keys():
+        # Check if elements are tensors, otherwise try to stack them directly
+        if isinstance(batch[0][key], torch.Tensor):
+            batched_data[key] = torch.stack([item[key].to(device) for item in batch])
+        else:
+            batched_data[key] = [item[key] for item in batch]
+    return batched_data
