@@ -18,17 +18,20 @@ class EpisodeDataset(Dataset):
         super().__init__()
         assert config is not None
         assert split
-        assert split in ["TRAIN", "TEST"]
+        assert split in ["TRAIN", "TEST", "EVAL"]
         self.config: Config = config
         self.split: str = split
         self.episodes: list[Episode] = []
 
-        for episode_idx in range(
-            config.train_dataset_length
-            if split == "TRAIN"
-            else config.test_dataset_length
-        ):
-            episode = Episode.new(id=f"dataitem_{episode_idx}")
+        if split == "TRAIN":
+            dataset_length = config.train_dataset_length
+        elif split == "TEST":
+            dataset_length = config.test_dataset_length
+        else:
+            assert split == "EVAL"
+            dataset_length = config.eval_dataset_length
+        for episode_idx in range(dataset_length):
+            episode = Episode.new(id=f"episode_{split}_{episode_idx}")
             self.episodes.append(episode)
 
     def __len__(self):

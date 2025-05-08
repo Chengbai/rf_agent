@@ -7,22 +7,22 @@ from dataclasses import dataclass, field
 class Config:
     # world
     world_min_x: int = 0
-    world_max_x: int = 30
+    world_max_x: int = 10
     world_min_y: int = 0
-    world_max_y: int = 20
+    world_max_y: int = 10
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
     world_block_probability = 0.2
 
     # Dataset
-    train_dataset_length: int = 10000
+    train_dataset_length: int = 1_000
     train_batch_size: int = 50
 
     test_dataset_length: int = 2000
     test_batch_size: int = 20
 
-    # Train
-    epoches: int = 2
+    eval_dataset_length: int = 2_000
+    eval_batch_size: int = 50
 
     # Actions
     possible_actions: torch.tensor = field(
@@ -48,14 +48,17 @@ class Config:
     top_k: int = 5
 
     # GRPO policy training
+    # Train / Eval / Test
+    epoches: int = 10
     episode_steps: int = 10
+    eval_steps: int = episode_steps * 10
     # episodes_per_iteration: int = 2
 
     # EPSILON
     epsilon = 1e-5
 
     # Device
-    device = torch.device("mps")
+    device = torch.device("cpu")  # torch.device("mps")
 
     # Figure size
     figure_size: tuple[int, int] = (5, 5)

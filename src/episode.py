@@ -29,7 +29,7 @@ class Episode:
         config = Config()
         world = World.create_from_config(id=id, config=config)
 
-        id = id if id else "earth"
+        id = id if id else "start_state"
         start_state = State.create_from(
             config=config,
             id=id,
@@ -38,9 +38,11 @@ class Episode:
         )
         target_state = State.create_from(
             config=config,
-            id=id if id else "earth",
-            x=random.uniform(config.world_min_x, config.world_max_x),
-            y=random.uniform(config.world_min_y, config.world_max_y),
+            id=id if id else "target_state",
+            x=0.0,
+            y=0.0,
+            # x=random.uniform(config.world_min_x, config.world_max_x),
+            # y=random.uniform(config.world_min_y, config.world_max_y),
         )
         agent = Agent.create_from(
             id=id, start_state=start_state, target_state=target_state
@@ -76,12 +78,8 @@ class Episode:
     def _run_steps(self, steps: int, policy: Policy, top_k: int, debug: bool = False):
         for step in range(steps):
             # logits = policy.forward(self.agent.current_state.normalized_position())
-            agent_current_pos = self.agent.current_state.normalized_position()[
-                None, :
-            ]  # 1 x 2
-            agent_target_pos = self.agent.target_state.normalized_position()[
-                None, :
-            ]  # 1 x 2
+            agent_current_pos = self.agent.current_state.position()[None, :]  # 1 x 2
+            agent_target_pos = self.agent.target_state.position()[None, :]  # 1 x 2
 
             fov = self.world.fov(center_pos=self.agent.current_state.position())
             batch_fov = fov.reshape(shape=(-1,))[None, :]
@@ -110,7 +108,7 @@ class Episode:
             )
             if debug:
                 print(
-                    f"step: {step}, logits: {batch_logits}, logit_prob: {batch_logit_prob}, top_k_prob: {batch_top_k_prob}, action_idx: {batch_action_idx}, state: {self.agent.current_state.normalized_position()}"
+                    f"step: {step}, logits: {batch_logits}, logit_prob: {batch_logit_prob}, top_k_prob: {batch_top_k_prob}, action_idx: {batch_action_idx}, state: {self.agent.current_state.position()}, action_history: {[a.action_idx for a in self.agent.action_history]}"
                 )
 
     def run_steps_by_policy(
