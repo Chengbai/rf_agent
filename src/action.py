@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 
+from copy import deepcopy
 from dataclasses import dataclass
 
 from src.config import Config
@@ -48,5 +49,5 @@ class Action:
         # RF:
         #  1. x-direction: desire move left->right
         #  2. y-direction: not desire any move
-        # return torch.tensor(dx - abs(dy), device=self.config.device)
-        return torch.tensor(dx - abs(dy), device=self.config.device)
+        # return torch.tensor(dx - abs(dy))
+        return torch.tensor(dx - abs(dy))

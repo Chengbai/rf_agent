@@ -3,6 +3,7 @@ from __future__ import annotations
 import matplotlib
 import numpy as np
 import torch
+import torchvision.transforms.functional as F
 
 from dataclasses import dataclass
 from matplotlib.colors import ListedColormap
@@ -19,17 +20,21 @@ cmap = ListedColormap(colors)
 
 @dataclass
 class World:
+    id: str
     config: Config
-    x_min: float
-    x_max: float
-    y_min: float
-    y_max: float
+    x_min: int
+    x_max: int
+    y_min: int
+    y_max: int
     world_board: torch.tensor
+    world_board_with_fov_padding: torch.tensor
 
     @staticmethod
-    def create_from_config(config: Config) -> World:
+    def create_from_config(id: str, config: Config) -> World:
+        assert id
         assert config is not None
         return World(
+            id=id,
             config=config,
             x_min=config.world_min_x,
             x_max=config.world_max_x,
@@ -38,14 +43,24 @@ class World:
             world_board=torch.zeros(
                 size=(config.world_height, config.world_width)
             ),  # Rows x Columns = H x W = Y x X
-        ).random_init(probability=0.01)
+            world_board_with_fov_padding=None,  # will be initialized in `random_init`
+        ).random_init(probability=config.world_block_probability)
 
     def random_init(self, probability: float = 0.05) -> World:
-        for h in range(self.config.world_height):
-            for w in range(self.config.world_width):
-                self.world_board[h][w] = torch.tensor(
-                    np.random.choice([0, 1], size=1, p=[1.0 - probability, probability])
-                )
+        self.world_board = torch.tensor(
+            np.random.choice(
+                [0, 1],
+                size=self.config.world_height * self.config.world_width,
+                p=[1.0 - probability, probability],
+            ),
+            dtype=torch.float,
+        ).view(self.config.world_height, self.config.world_width)
+        self.world_board_with_fov_padding = F.pad(
+            self.world_board,
+            [self.config.field_of_view] * 4,
+            1,
+            padding_mode="constant",
+        )
         return self
 
     def get_reward(self, state: State, action: Action):
@@ -58,6 +73,55 @@ class World:
         reward = max(0, state.x + action)
         return reward
 
+    def fov(self, center_pos: torch.tensor) -> torch.tensor:
+        assert center_pos is not None
+        assert center_pos.size()[-1] == 2
+
+        # crop a (FOV+1) x (FOV+1)
+        """
+            Y-axis
+            ^
+            |      2 x FOV
+        (sX-FOV-1, sY+FOV+1)   (sX+FOV+1, sY+FOV+1)
+            |------------------|
+            |                  |
+            |                  |
+            |     (sX, sY)     | 2 x FOV
+            |                  |
+            |                  |
+            |------------------|-> X-axis
+        (sX-FOV-1, sY-FOV-1)   (sX+FOV, sY-FOV-1)
+        """
+
+        top_left_pos = center_pos + torch.tensor(
+            [-self.config.field_of_view - 1, -self.config.field_of_view - 1]
+        )
+
+        sy = int(top_left_pos[0])  # Rows -> y-axis
+        sx = int(top_left_pos[1])  # Columns -> x-axis
+        fov_tensor = F.crop(
+            self.world_board_with_fov_padding,
+            sx
+            + self.config.field_of_view
+            + 1,  # because padding all 4 sides with `field_of_view`
+            sy
+            + self.config.field_of_view
+            + 1,  # because padding all 4 sides with `field_of_view`
+            2 * self.config.field_of_view + 1,
+            2 * self.config.field_of_view + 1,
+        )
+
+        return fov_tensor
+
+    def viz_fov(self, center_pos: torch.tensor, ax: matplotlib.axes._axes.Axes):
+        assert center_pos is not None
+        assert ax is not None
+
+        fov = self.fov(center_pos=center_pos)
+        ax.pcolormesh(fov, cmap=cmap, edgecolors="gray", linewidths=0.5)
+        # ax.set_xlim(self.config.world_min_x, self.config.world_max_x)
+        # ax.set_ylim(self.config.world_min_y, self.config.world_max_y)
+
     def viz(
         self,
         ax: matplotlib.axes._axes.Axes,
@@ -68,16 +132,27 @@ class World:
         assert ax is not None
         assert agent is not None
 
-        # debug
-        # self.world_board[0][0] = 2
+        # make a copy for the viz
+        viz_world_board = self.world_board.clone().detach()
 
-        x0 = int(agent.init_state.x)
-        y0 = int(agent.init_state.y)
-        self.world_board[y0][x0] = 2
+        x0 = int(agent.start_state.x)
+        y0 = int(agent.start_state.y)
+        viz_world_board[y0][x0] = 2
 
         ax.annotate(
             f"start",
             xy=(x0, y0),
+            xycoords="data",
+            color="black",
+            fontsize=12,
+        )
+
+        x1 = int(agent.target_state.x)
+        y1 = int(agent.target_state.y)
+        viz_world_board[y1][x1] = 2
+        ax.annotate(
+            f"target",
+            xy=(x1, y1),
             xycoords="data",
             color="black",
             fontsize=12,
@@ -94,7 +169,7 @@ class World:
             # print(f"step: {idx}, x0: {x0}, y0: {y0} dx: {dx}, dy: {dy}")
             x0 += dx
             y0 += dy
-            self.world_board[y0][x0] = 3  # update the trace
+            viz_world_board[y0][x0] = 3  # update the trace
             # ax.annotate(
             #     f"{idx}(P{action.prob.item()*100:.2f}%)",
             #     xy=(y0, x0),
@@ -111,11 +186,11 @@ class World:
         # print(f"xa_sorted: {xa_sorted}")
         # print(f"ya_sorted: {ya_sorted}")
 
-        ax.pcolormesh(self.world_board, cmap=cmap, edgecolors="gray", linewidths=0.5)
+        ax.pcolormesh(viz_world_board, cmap=cmap, edgecolors="gray", linewidths=0.5)
         ax.set_xlim(self.config.world_min_x, self.config.world_max_x)
         ax.set_ylim(self.config.world_min_y, self.config.world_max_y)
 
-        world_board_h, world_board_w = self.world_board.shape
+        world_board_h, world_board_w = viz_world_board.shape
         ax.set_xticks(list(range(0, world_board_w, 5)))  # Set x-ticks at 1, 2, and 3
         ax.set_yticks(list(range(0, world_board_h, 5)))  # Set y-ticks at 4, 8, and 12
         ax.grid(True)  # Show gridlines at the set tick positions
@@ -128,3 +203,17 @@ class World:
         #     ylim=[config.world_min_y, config.world_max_y],
         # )
         ax.grid(which="major", axis="y")
+
+    def reset(self):
+        pass
+
+    def can_move_to(self, target_position: torch.tensor):
+        x, y = target_position
+        if (
+            x < 0
+            or x >= self.config.world_width
+            or y < 0
+            or y >= self.config.world_height
+        ):
+            return False
+        return self.world_board[y][x] == 0  # H x W

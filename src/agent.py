@@ -12,24 +12,41 @@ from src.state import State
 @dataclass
 class Agent:
     id: str
-    init_state: State
-    state: State
+    start_state: State
+    target_state: State
+    current_state: State
+    state_history: list[State] | None
     action_history: list[Action] | None
 
     @staticmethod
-    def create_from(id: str, state: State) -> Agent:
+    def create_from(id: str, start_state: State, target_state: State) -> Agent:
         assert id
-        assert state is not None
+        assert start_state is not None
+        assert target_state is not None
         return Agent(
-            id=id, init_state=copy.deepcopy(state), state=state, action_history=[]
+            id=id,
+            start_state=copy.deepcopy(start_state),
+            target_state=copy.deepcopy(target_state),
+            current_state=copy.deepcopy(start_state),
+            state_history=[],
+            action_history=[],
         )
 
     def take_action(self, action: Action) -> Agent:
         assert action is not None
 
-        if self.state.can_take_action(action=action):
-            self.state.take_action(action=action)
+        # check is at the `target_state`, if it is no more move
+        if torch.equal(self.current_state.position(), self.target_state.position()):
+            return self
+
+        # check is out of the border. If it is no more move
+        if self.current_state.can_take_action(action=action):
+            self.current_state.take_action(action=action)
+
             self.action_history.append(action)
+
+            # `state_history` contains all of state afte the `start_state`
+            self.state_history.append(self.current_state.copy())
         return self
 
     def reward(self) -> torch.tensor:
@@ -54,3 +71,7 @@ class Agent:
             prob *= action.prob
 
         return prob
+
+    def reset(self):
+        self.current_state = copy.deepcopy(self.start_state)
+        self.action_history = []

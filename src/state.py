@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import torch
+
 from dataclasses import dataclass
 
 from src.action import Action
@@ -11,15 +12,18 @@ from src.config import Config
 class State:
     config: Config
     id: str
-    x: float
-    y: float
+    x: int
+    y: int
 
     @staticmethod
-    def create_from(config: Config, id: str, x: float, y: float) -> State:
+    def create_from(config: Config, id: str, x: int, y: int) -> State:
         assert config is not None
         assert id
 
         return State(config=config, id=id, x=x, y=y)
+
+    def copy(self) -> State:
+        return State(config=self.config, id=f"{self.id}_copy", x=self.x, y=self.y)
 
     def can_take_action(self, action: Action) -> bool:
         dx, dy = action.get_udpate()
@@ -50,10 +54,13 @@ class State:
         )
         return self
 
-    def to_tensor(self) -> torch.tensor:
+    def normalized_position(self) -> torch.tensor:
         return torch.tensor(
             [
                 self.x / (self.config.world_max_x - self.config.world_min_x),
                 self.y / (self.config.world_max_y - self.config.world_min_y),
             ]
-        ).to(self.config.device)
+        )
+
+    def position(self) -> torch.tensor:
+        return torch.tensor([self.x, self.y])

@@ -12,9 +12,13 @@ class Policy(nn.Module):
         self._config = config
 
         self.brain = nn.Sequential(
-            nn.Linear(config.input_features, config.intermedia_features, bias=True),
+            nn.Linear(config.input_features, config.intermedia_features1, bias=True),
             nn.ReLU(),
-            nn.Linear(config.intermedia_features, len(config.possible_actions)),
+            nn.Linear(
+                config.intermedia_features1, config.intermedia_features2, bias=True
+            ),
+            nn.ReLU(),
+            nn.Linear(config.intermedia_features2, len(config.possible_actions)),
         )
         self._init_parameters()
 
@@ -25,5 +29,4 @@ class Policy(nn.Module):
 
     def forward(self, x: torch.tensor):
         assert x is not None
-        assert x.shape == (2,)
         return self.brain(x)
