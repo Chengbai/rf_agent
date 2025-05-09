@@ -15,13 +15,13 @@ class Config:
     world_block_probability = 0.2
 
     # Dataset
-    train_dataset_length: int = 1_000
+    train_dataset_length: int = 100
     train_batch_size: int = 50
 
     test_dataset_length: int = 2000
     test_batch_size: int = 20
 
-    eval_dataset_length: int = 2_000
+    eval_dataset_length: int = 100
     eval_batch_size: int = 50
 
     # Actions
@@ -49,9 +49,10 @@ class Config:
 
     # GRPO policy training
     # Train / Eval / Test
-    epoches: int = 10
+    lr = 10.0
+    epoches: int = 2
     episode_steps: int = 10
-    eval_steps: int = episode_steps * 10
+    eval_steps: int = 10
     # episodes_per_iteration: int = 2
 
     # EPSILON

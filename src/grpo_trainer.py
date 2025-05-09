@@ -1,4 +1,5 @@
 import io
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import PIL.Image
 from functools import partial
@@ -33,7 +34,9 @@ class GRPOTrainer:
         self.policy.to(config.device)
         self.reward_model = reward_model
 
-        self.optimizer = torch.optim.AdamW(policy.parameters(), lr=1, weight_decay=0.01)
+        self.optimizer = torch.optim.AdamW(
+            policy.parameters(), lr=config.lr, weight_decay=0.01
+        )
         self.writer = SummaryWriter()
 
     def get_data_loader(self, dataset: EpisodeDataset) -> DataLoader:
@@ -185,17 +188,22 @@ class GRPOTrainer:
             )
             for idx, episode in enumerate(target_episodes):
                 if idx == 0 and debug:
+                    # plt.ioff()
                     # only viz the 1st episode
                     # avoid too much data
                     fig = plt.figure(figsize=self.config.figure_size)
                     ax = fig.add_subplot(1, 1, 1)
-                    episode.viz(ax=ax, color=get_color(0))
+                    episode.viz(
+                        ax=ax, reward_model=self.reward_model, color=get_color(0)
+                    )
                     plot_buf = io.BytesIO()
                     plt.savefig(plot_buf, format="jpeg")
                     plot_buf.seek(0)
                     image = PIL.Image.open(plot_buf)
                     image = ToTensor()(image)
-                    self.writer.add_image(f"Episod: {episode.id}", image, step)
+                    self.writer.add_image(f"Train Episod: {episode.id}", image, step)
+                    # plt.ion()
+
                 episode.reset()
 
     def run_1_batch(
@@ -261,7 +269,12 @@ class GRPOTrainer:
         return current_batch_episode_idx
 
     def eval_policy(
-        self, dataset: EpisodeDataset, dataloader: DataLoader, step: int, debug: bool
+        self,
+        dataset: EpisodeDataset,
+        dataloader: DataLoader,
+        epoch: int,
+        step: int,
+        debug: bool,
     ):
         self.policy.eval()
         with torch.no_grad():
@@ -284,24 +297,39 @@ class GRPOTrainer:
                         )
                     )
 
+                    mean_episode_weighted_rewards = torch.nan_to_num(
+                        mean_episode_weighted_rewards, nan=0.0
+                    )
                     eval_mean_episode_weighted_rewards += mean_episode_weighted_rewards
                 finally:
                     target_episodes = dataset.get_episods(
                         batch_episode_idices=current_batch_episode_idx
                     )
                     for idx, episode in enumerate(target_episodes):
-                        if idx == 0 and debug:
+                        if batch_idx == 0 and idx == 0:  # viz the 1st batch 1st item
+                            backend_ = mpl.get_backend()
+                            mpl.use("Agg")  # Prevent showing stuff
+
                             # only viz the 1st episode
                             # avoid too much data
                             fig = plt.figure(figsize=self.config.figure_size)
                             ax = fig.add_subplot(1, 1, 1)
-                            episode.viz(ax=ax, color=get_color(0))
+                            episode.viz(
+                                ax=ax,
+                                reward_model=self.reward_model,
+                                color=get_color(0),
+                            )
                             plot_buf = io.BytesIO()
                             plt.savefig(plot_buf, format="jpeg")
                             plot_buf.seek(0)
                             image = PIL.Image.open(plot_buf)
                             image = ToTensor()(image)
-                            self.writer.add_image(f"Episod: {episode.id}", image, step)
+                            self.writer.add_image(
+                                f"Eval Episod: {epoch}:{episode.id}", image, step
+                            )
+
+                            mpl.use(backend_)  # Reset backend
+
                         episode.reset()
             self.writer.add_scalar(
                 "Eval: mean_episode_weighted_rewards",
@@ -355,18 +383,6 @@ class GRPOTrainer:
                     # reset last_batch_episode_idx
                     last_batch_episode_idx = None
 
-                # Eval
-                if (batch_idx + 1) % self.config.eval_steps == 0:
-                    self.eval_policy(
-                        dataset=eval_dataset,
-                        dataloader=eval_dataloader,
-                        step=step,
-                        debug=debug,
-                    )
-
-                    # reset to the train mode
-                    self.policy.train()
-
             if last_batch_episode_idx is not None:
                 # print(f"optmized model. last_batch_episode_idx: {last_batch_episode_idx}")
                 step += 1
@@ -377,3 +393,16 @@ class GRPOTrainer:
                     step=step,
                     debug=debug,
                 )
+
+            # Eval - each epoch
+            try:
+                self.eval_policy(
+                    dataset=eval_dataset,
+                    dataloader=eval_dataloader,
+                    step=step,
+                    epoch=epoch,
+                    debug=debug,
+                )
+            finally:
+                # reset to the train mode
+                self.policy.train()

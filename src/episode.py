@@ -150,8 +150,20 @@ class Episode:
     def reward_prob(self) -> torch.tensor:
         return self.agent.reward_prob()
 
-    def viz(self, ax: matplotlib.axes._axes.Axes, color: str = "red"):
-        self.world.viz(ax=ax, agent=self.agent, config=self.config, color=color)
+    def viz(
+        self,
+        ax: matplotlib.axes._axes.Axes,
+        reward_model: RewardModel,
+        color: str = "red",
+    ):
+        self.world.viz(
+            ax=ax,
+            agent=self.agent,
+            config=self.config,
+            color=color,
+        )
+        rewards = self.reward(reward_model=reward_model)
+        ax.set_title(f"{self.id}: {rewards}")
 
     def take_action(self, action: Action):
         return self.agent.take_action(action)
