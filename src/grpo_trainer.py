@@ -243,15 +243,17 @@ class GRPOTrainer:
 
         batch_fov = batch_fov.reshape(shape=(B, -1))
 
+        # feature: [B, fov]
+        features = batch_fov
         # feature: [B, current_pos, target_pos, fov]
-        features = torch.concat(
-            [
-                last_batch_agent_current_pos,
-                last_batch_agent_target_pos,
-                batch_fov,
-            ],
-            dim=1,
-        )
+        # features = torch.concat(
+        #     [
+        #         last_batch_agent_current_pos,
+        #         last_batch_agent_target_pos,
+        #         batch_fov,
+        #     ],
+        #     dim=1,
+        # )
         batch_logits = self.policy(features)
         # print(f"batch_logits: {batch_logits.shape}")
         batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
@@ -312,12 +314,16 @@ class GRPOTrainer:
 
                             # only viz the 1st episode
                             # avoid too much data
-                            fig = plt.figure(figsize=self.config.figure_size)
-                            ax = fig.add_subplot(1, 1, 1)
+                            fig, axes = plt.subplots(
+                                nrows=1, ncols=2, figsize=self.config.double_figure_size
+                            )
                             episode.viz(
-                                ax=ax,
+                                ax=axes[0],
                                 reward_model=self.reward_model,
                                 color=get_color(0),
+                            )
+                            episode.viz_fov(
+                                ax=axes[1],
                             )
                             plot_buf = io.BytesIO()
                             plt.savefig(plot_buf, format="jpeg")

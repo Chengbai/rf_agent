@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib
+import matplotlib.cm as cm
 import numpy as np
 import torch
 import torchvision.transforms.functional as F
@@ -14,8 +15,7 @@ from src.config import Config
 from src.state import State
 
 # Create a custom colormap for the cells
-colors = ["white", "black", "red", "blue"]
-cmap = ListedColormap(colors)
+cmap = ListedColormap(Config.ENCODE_COLORS)
 
 
 @dataclass
@@ -49,7 +49,7 @@ class World:
     def random_init(self, probability: float = 0.05) -> World:
         self.world_board = torch.tensor(
             np.random.choice(
-                [0, 1],
+                [self.config.ENCODE_EMPTY, self.config.ENCODE_BLOCK],
                 size=self.config.world_height * self.config.world_width,
                 p=[1.0 - probability, probability],
             ),
@@ -57,8 +57,8 @@ class World:
         ).view(self.config.world_height, self.config.world_width)
         self.world_board_with_fov_padding = F.pad(
             self.world_board,
-            [self.config.field_of_view] * 4,
-            1,
+            [self.config.field_of_view_height, self.config.field_of_view_width] * 2,
+            self.config.ENCODE_BLOCK,
             padding_mode="constant",
         )
         return self
@@ -94,7 +94,10 @@ class World:
         """
 
         top_left_pos = center_pos + torch.tensor(
-            [-self.config.field_of_view - 1, -self.config.field_of_view - 1]
+            [
+                -self.config.field_of_view_height - 1,
+                -self.config.field_of_view_width - 1,
+            ]
         )
 
         sy = int(top_left_pos[0])  # Rows -> y-axis
@@ -102,16 +105,16 @@ class World:
         fov_tensor = F.crop(
             self.world_board_with_fov_padding,
             sx
-            + self.config.field_of_view
+            + self.config.field_of_view_width
             + 1,  # because padding all 4 sides with `field_of_view`
             sy
-            + self.config.field_of_view
+            + self.config.field_of_view_height
             + 1,  # because padding all 4 sides with `field_of_view`
-            2 * self.config.field_of_view + 1,
-            2 * self.config.field_of_view + 1,
+            2 * self.config.field_of_view_height + 1,
+            2 * self.config.field_of_view_width + 1,
         )
 
-        return fov_tensor
+        return fov_tensor.clone()
 
     def viz_fov(self, center_pos: torch.tensor, ax: matplotlib.axes._axes.Axes):
         assert center_pos is not None
@@ -119,6 +122,7 @@ class World:
 
         fov = self.fov(center_pos=center_pos)
         ax.pcolormesh(fov, cmap=cmap, edgecolors="gray", linewidths=0.5)
+        # ax.pcolormesh(fov, cmap=cm.gray, edgecolors="gray", linewidths=0.5)
         # ax.set_xlim(self.config.world_min_x, self.config.world_max_x)
         # ax.set_ylim(self.config.world_min_y, self.config.world_max_y)
 
@@ -137,7 +141,7 @@ class World:
 
         x0 = int(agent.start_state.x)
         y0 = int(agent.start_state.y)
-        viz_world_board[y0][x0] = 2
+        viz_world_board[y0][x0] = self.config.ENCODE_START_POS
 
         ax.annotate(
             f"start",
@@ -149,7 +153,7 @@ class World:
 
         x1 = int(agent.target_state.x)
         y1 = int(agent.target_state.y)
-        viz_world_board[y1][x1] = 2
+        viz_world_board[y1][x1] = self.config.ENCODE_TARGET_POS
         ax.annotate(
             f"target",
             xy=(x1, y1),
@@ -169,7 +173,9 @@ class World:
             # print(f"step: {idx}, x0: {x0}, y0: {y0} dx: {dx}, dy: {dy}")
             x0 += dx
             y0 += dy
-            viz_world_board[y0][x0] = 3  # update the trace
+            viz_world_board[y0][
+                x0
+            ] = self.config.ENCODE_START_STEP_IDX  # update the trace
             # ax.annotate(
             #     f"{idx}(P{action.prob.item()*100:.2f}%)",
             #     xy=(y0, x0),
@@ -186,6 +192,7 @@ class World:
         # print(f"xa_sorted: {xa_sorted}")
         # print(f"ya_sorted: {ya_sorted}")
 
+        # ax.pcolormesh(viz_world_board, cmap=cm.gray, edgecolors="gray", linewidths=0.5)
         ax.pcolormesh(viz_world_board, cmap=cmap, edgecolors="gray", linewidths=0.5)
         ax.set_xlim(self.config.world_min_x, self.config.world_max_x)
         ax.set_ylim(self.config.world_min_y, self.config.world_max_y)

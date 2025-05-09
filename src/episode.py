@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib
+import matplotlib.cm as cm
 import random
 import torch
 import torch.nn.functional as F
@@ -81,16 +82,9 @@ class Episode:
             agent_current_pos = self.agent.current_state.position()[None, :]  # 1 x 2
             agent_target_pos = self.agent.target_state.position()[None, :]  # 1 x 2
 
-            fov = self.world.fov(center_pos=self.agent.current_state.position())
+            fov = self.fov(center_pos=self.agent.current_state.position())
             batch_fov = fov.reshape(shape=(-1,))[None, :]
-            batch_features = torch.concat(
-                [
-                    agent_current_pos,
-                    agent_target_pos,
-                    batch_fov,
-                ],
-                dim=1,
-            )
+            batch_features = batch_fov
             batch_features = batch_features.to(next(policy.parameters()).device)
 
             batch_logits = policy.forward(batch_features)
@@ -131,17 +125,10 @@ class Episode:
 
     def reward(self, reward_model: RewardModel) -> torch.tensor:
         assert reward_model is not None
-        return torch.sum(
-            torch.tensor(
-                [
-                    reward_model.reward(
-                        world=self.world, agent=self.agent, state=state, action=action
-                    )
-                    for state, action in zip(
-                        self.agent.state_history, self.agent.action_history
-                    )
-                ]
-            )
+        return reward_model.state_reward(
+            world=self.world,
+            agent=self.agent,
+            state=self.agent.state_history[-1],
         )
 
     def log_reward_prob(self) -> torch.tensor:
@@ -149,6 +136,27 @@ class Episode:
 
     def reward_prob(self) -> torch.tensor:
         return self.agent.reward_prob()
+
+    def fov(self, center_pos: torch.tensor) -> torch.tensor:
+        world_fov = self.world.fov(center_pos=center_pos)
+
+        # Encode the fov
+        cy = int(center_pos[0])  # Rows -> y-axis
+        cx = int(center_pos[1])  # Columns -> x-axis
+        world_fov[cx, cy] = self.config.ENCODE_START_POS
+
+        target_pos = self.agent.target_state.position()
+        ty = int(target_pos[0])  # Rows -> y-axis
+        tx = int(target_pos[1])  # Columns -> x-axis
+        world_fov[tx, ty] = self.config.ENCODE_TARGET_POS
+
+        for state_idx, state in enumerate(self.agent.state_history):
+            state_pos = state.position()
+            sy = int(state_pos[0])  # Rows -> y-axis
+            sx = int(state_pos[1])  # Columns -> x-axis
+            world_fov[sx, sy] = self.config.ENCODE_START_STEP_IDX
+
+        return world_fov
 
     def viz(
         self,
@@ -164,6 +172,11 @@ class Episode:
         )
         rewards = self.reward(reward_model=reward_model)
         ax.set_title(f"{self.id}: {rewards}")
+
+    def viz_fov(self, ax: matplotlib.axes._axes.Axes):
+        assert ax is not None
+        fov = self.fov(center_pos=self.agent.start_state.position())
+        ax.pcolormesh(fov, cmap=cm.gray, edgecolors="gray", linewidths=0.5)
 
     def take_action(self, action: Action):
         return self.agent.take_action(action)

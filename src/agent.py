@@ -30,7 +30,11 @@ class Agent:
             current_state=copy.deepcopy(start_state),
             state_history=[],
             action_history=[],
-        )
+        )._init()
+
+    def _init(self) -> Agent:
+        self.state_history = [self.start_state]
+        return self
 
     def take_action(self, action: Action) -> Agent:
         assert action is not None

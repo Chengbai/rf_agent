@@ -49,9 +49,7 @@ class EpisodeDataset(Dataset):
             # "world_id": target_episode.world.id,
             # "position": target_episode.agent.current_state.position(),
             # "normalized_position": target_episode.agent.current_state.normalized_position(),
-            "fov": target_episode.world.fov(
-                target_episode.agent.current_state.position()
-            ),
+            "fov": target_episode.fov(target_episode.agent.current_state.position()),
         }
 
     def get_episode(self, index: int) -> Episode:
