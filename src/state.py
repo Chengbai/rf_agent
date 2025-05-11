@@ -22,8 +22,11 @@ class State:
 
         return State(config=config, id=id, x=x, y=y)
 
-    def copy(self) -> State:
-        return State(config=self.config, id=f"{self.id}_copy", x=self.x, y=self.y)
+    def clone(self, idx: int) -> State:
+        assert idx >= 0
+        return State(
+            config=self.config, id=f"{self.id}:clone:{idx}", x=self.x, y=self.y
+        )
 
     def can_take_action(self, action: Action) -> bool:
         dx, dy = action.get_udpate()

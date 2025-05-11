@@ -15,14 +15,14 @@ class Config:
     world_block_probability = 0.2
 
     # Dataset
-    train_dataset_length: int = 10000
-    train_batch_size: int = 50
+    train_dataset_length: int = 1000
+    train_batch_size: int = 20
 
-    test_dataset_length: int = 2000
-    test_batch_size: int = 20
+    test_dataset_length: int = 10
+    test_batch_size: int = 5
 
-    eval_dataset_length: int = 10000
-    eval_batch_size: int = 50
+    eval_dataset_length: int = 100
+    eval_batch_size: int = 5
 
     # Actions
     possible_actions: torch.tensor = field(
@@ -59,10 +59,11 @@ class Config:
 
     # GRPO policy training
     # Train / Eval / Test
-    lr = 10.0
-    epoches: int = 20
-    episode_steps: int = 30
-    eval_steps: int = 10
+    lr = 1.0
+    epoches: int = 2
+    episode_group_size: int = 50
+    episode_steps: int = 2
+    eval_steps: int = 2
     # episodes_per_iteration: int = 2
 
     # EPSILON
@@ -76,5 +77,5 @@ class Config:
     double_figure_size: tuple[int, int] = (10, 5)
 
     # Rewards
-    max_reward = torch.tensor(100.0)
-    blocked_reward = torch.tensor(-50.0)
+    max_reward = torch.tensor(500.0)
+    blocked_reward = torch.tensor(-500.0)

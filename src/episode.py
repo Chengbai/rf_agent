@@ -67,6 +67,21 @@ class Episode:
         )
         return Episode(id=id, config=start_state.config, world=world, agent=agent)
 
+    def clone(self, repeat: int) -> list[Episode]:
+        assert repeat > 0
+
+        clone_episodes = []
+        for i in range(repeat):
+            clone_episodes.append(
+                Episode(
+                    id=f"{self.id}:clone:{i}",
+                    config=self.config,
+                    world=self.world.clone(idx=i),
+                    agent=self.agent.clone(idx=i),
+                )
+            )
+        return clone_episodes
+
     def run_steps_by_random(self, steps: int, debug: bool = False):
         for step in range(steps):
             action_idx = random.randint(0, len(self.config.possible_actions) - 1)

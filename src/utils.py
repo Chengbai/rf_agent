@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from torch.utils.data.dataloader import default_collate
 
 
 def normalize_min_max(batch_logits):
@@ -39,7 +38,7 @@ def top_k_sampling(
     logits_probs = F.softmax(norm_logits, dim=-1)
     # print(f"logits_probs: {logits_probs}")
 
-    values, indices = torch.topk(logits, k, dim=-1)
+    values, indices = torch.topk(norm_logits, k, dim=-1)
     # print(f"topk - k: {k}, values: {values}, indices: {indices}")
     # masked_logits = logits.clone().masked_fill(
     #     ~torch.isin(logits, values, dim=-1), float("-inf")

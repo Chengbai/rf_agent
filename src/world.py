@@ -63,6 +63,18 @@ class World:
         )
         return self
 
+    def clone(self, idx: int) -> World:
+        return World(
+            id=f"{self.id}:clone:{idx}",
+            config=self.config,
+            x_min=self.x_min,
+            x_max=self.x_max,
+            y_min=self.y_min,
+            y_max=self.y_max,
+            world_board=self.world_board.clone(),
+            world_board_with_fov_padding=self.world_board_with_fov_padding.clone(),
+        )
+
     def get_reward(self, state: State, action: Action):
         assert state is not None
         assert action is not None

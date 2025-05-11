@@ -36,6 +36,28 @@ class Agent:
         self.state_history = [self.start_state]
         return self
 
+    def clone(self, idx: int) -> Agent:
+        return Agent(
+            id=f"{self.id}:clone:{idx}",
+            start_state=(
+                self.start_state.clone(idx=idx)
+                if self.start_state is not None
+                else None
+            ),
+            target_state=(
+                self.target_state.clone(idx=idx)
+                if self.target_state is not None
+                else None
+            ),
+            current_state=(
+                self.current_state.clone(idx=idx)
+                if self.target_state is not None
+                else None
+            ),
+            state_history=[s.clone(idx=idx) for s in self.state_history],
+            action_history=[a.clone(idx=idx) for a in self.action_history],
+        )
+
     def take_action(self, action: Action) -> Agent:
         assert action is not None
 
@@ -50,7 +72,7 @@ class Agent:
             self.action_history.append(action)
 
             # `state_history` contains all of state afte the `start_state`
-            self.state_history.append(self.current_state.copy())
+            self.state_history.append(self.current_state.clone(idx=0))
         return self
 
     def reward(self) -> torch.tensor:

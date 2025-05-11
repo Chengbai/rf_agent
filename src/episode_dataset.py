@@ -1,7 +1,9 @@
 import torch
 from torch.utils.data import Dataset
 
+import concurrent.futures
 from random import random
+import time
 
 from src.action import Action
 from src.agent import Agent
@@ -30,9 +32,19 @@ class EpisodeDataset(Dataset):
         else:
             assert split == "EVAL"
             dataset_length = config.eval_dataset_length
+
+        # Dataset pattern:
+        #   - for group size 3
+        #   - [E0, E0C0, E0C1, E1, E1C0, E1C2, ...]
         for episode_idx in range(dataset_length):
+            # Create the 1st episode in the group
             episode = Episode.new(id=f"episode_{split}_{episode_idx}")
             self.episodes.append(episode)
+
+            # Clone G-1 times
+            self.episodes.extend(episode.clone(repeat=config.episode_group_size - 1))
+
+        assert len(self.episodes) == dataset_length * self.config.episode_group_size
 
     def __len__(self):
         return len(self.episodes)
@@ -73,7 +85,7 @@ class EpisodeDataset(Dataset):
             == batch_top_k_prob.shape[0]
         )
         for item_idx, episode_idx in enumerate(batch_episode_idices):
-            episode: Episode = self.episodes[episode_idx]
+            episode: Episode = self.get_episode(episode_idx)
             assert episode is not None
 
             episode.take_action(
@@ -87,7 +99,7 @@ class EpisodeDataset(Dataset):
     def get_episods(self, batch_episode_idices: list[int]) -> list[Episode]:
         target_episodes = []
         for episode_idx in batch_episode_idices:
-            episode: Episode = self.episodes[episode_idx]
+            episode: Episode = self.get_episode(episode_idx)
             assert episode is not None
             target_episodes.append(episode)
 

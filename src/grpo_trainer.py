@@ -3,8 +3,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import PIL.Image
 from functools import partial
+from tqdm import tqdm
 
 import torch
+from torch.profiler import profile, record_function, ProfilerActivity
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import ToTensor
@@ -53,6 +55,7 @@ class GRPOTrainer:
         batch_repeat_sampler = EpisodeBatchRepeatSampler(
             dataset=dataset,
             batch_size=batch_size,
+            group_size=self.config.episode_group_size,
             repeats=self.config.episode_steps,
         )
         print(f"batch_repeat_sampler: {list(batch_repeat_sampler)}")
@@ -61,7 +64,7 @@ class GRPOTrainer:
 
         dataloader = DataLoader(
             dataset,
-            batch_size=batch_size,
+            batch_size=batch_size * self.config.episode_group_size,
             sampler=batch_repeat_sampler,
             pin_memory=True,
             collate_fn=to_device_collate_configurable,
@@ -81,7 +84,7 @@ class GRPOTrainer:
 
         # 1. get target episodes
         target_episodes = dataset.get_episods(batch_episode_idices=batch_episode_idices)
-
+        episode_ids = [dataset.get_episode(i).id for i in batch_episode_idices]
         # 2. Compute the Advantages
         episodes_rewards = torch.tensor(
             [
@@ -92,48 +95,75 @@ class GRPOTrainer:
         )
         # print(f"episodes rewards: {episodes_rewards}")
 
-        r_std, r_mean = torch.std_mean(episodes_rewards)
-        if write_tensorboard:
-            self.writer.add_scalar("r_std", r_std, step)
-            self.writer.add_scalar("r_mean", r_mean, step)
-        if torch.isnan(r_std) or r_std == 0.0:
-            # print(f"invalid episode, r_std: {r_std}")
-            return
+        # B x G
+        group_episodes_rewards = episodes_rewards.view(
+            -1,
+            self.config.episode_group_size,
+        )
 
-        r_advantages = (episodes_rewards - r_mean) / r_std
-        # print(f"r_std: {r_std}, r_mean: {r_mean}, r_advantages: {r_advantages}")
+        # B x 1
+        group_r_std, group_r_mean = torch.std_mean(
+            group_episodes_rewards, dim=1, keepdim=True
+        )
+        if write_tensorboard:
+            self.writer.add_tensor("group_r_std", group_r_std, step)
+            self.writer.add_tensor("group_r_mean", group_r_mean, step)
+        # if torch.isnan(group_r_std) or group_r_std == 0.0:
+        #     # print(f"invalid episode, group_r_std: {r_std}")
+        #     return
+
+        group_r_std = torch.nan_to_num(group_r_std, nan=1.0)
+        group_r_std[group_r_std == 0.0] = 1.0
+
+        # B x G
+        group_r_advantages = (group_episodes_rewards - group_r_mean) / group_r_std
+        # print(f"group_r_std: {group_r_std}, r_mean: {r_mean}, r_advantages: {r_advantages}")
 
         # 3. Compute the KL-
         # N/A
 
         # 4. Compute weighted rewards
-        advantage_weighted_rewards = episodes_rewards * r_advantages
-        # print(f"advantage_weighted_rewards: {advantage_weighted_rewards}")
+        # B x G
+        group_advantage_weighted_rewards = group_episodes_rewards * group_r_advantages
+        # print(f"group_advantage_weighted_rewards: {group_advantage_weighted_rewards}")
 
         episode_log_probs = torch.concat(
             [episode.log_reward_prob() for episode in target_episodes]
-        ).to(self.config.device)
+        )
+
+        # B x G
+        group_episode_log_probs = episode_log_probs.view(
+            -1,
+            self.config.episode_group_size,
+        )
         # print(f"episode_log_probs: {episode_log_probs}")
         if write_tensorboard:
-            self.writer.add_histogram(f"episode_log_probs", episode_log_probs, step)
+            self.writer.add_tensor(
+                f"group_episode_log_probs", group_episode_log_probs, step
+            )
 
         episode_probs = torch.concat(
             [episode.reward_prob() for episode in target_episodes]
         )
-        # print(f"episode_probs: {episode_probs}")
-        if write_tensorboard:
-            self.writer.add_histogram(f"episode_probs", episode_probs, step)
 
-        episode_weighted_rewards = (
-            advantage_weighted_rewards * episode_log_probs
-        )  # episode_probs
-        # print(f"episode_weighted_rewards: {episode_weighted_rewards}")
+        # B x G
+        group_episode_probs = episode_probs.view(-1, self.config.episode_group_size)
+        # print(f"group_episode_probs: {group_episode_probs}")
         if write_tensorboard:
-            self.writer.add_histogram(
-                f"episode_weighted_rewards", episode_weighted_rewards, step
+            self.writer.add_tensor(f"group_episode_probs", group_episode_probs, step)
+
+        # B x G
+        group_episode_weighted_rewards = (
+            group_advantage_weighted_rewards * group_episode_log_probs
+        )  # episode_probs
+        # print(f"group_episode_weighted_rewards: {group_episode_weighted_rewards}")
+        if write_tensorboard:
+            self.writer.add_tensor(
+                f"group_episode_weighted_rewards", group_episode_weighted_rewards, step
             )
 
-        mean_episode_weighted_rewards = torch.mean(episode_weighted_rewards)
+        # 1
+        mean_episode_weighted_rewards = torch.mean(group_episode_weighted_rewards)
         # print(f"mean_episode_weighted_rewards: {mean_episode_weighted_rewards}")
         if write_tensorboard:
             self.writer.add_scalar(
@@ -224,8 +254,9 @@ class GRPOTrainer:
         last_batch_agent_current_pos = batch_data_items["agent_current_pos"]
 
         if debug:
+            episode_ids = [dataset.get_episode(i).id for i in current_batch_episode_idx]
             print(
-                f"current_batch_episode_idx: {current_batch_episode_idx}, last_batch_agent_start_pos: {last_batch_agent_start_pos}, last_batch_agent_target_pos: {last_batch_agent_target_pos}, last_batch_agent_current_pos: {last_batch_agent_current_pos}"
+                f"current_batch_episode_idx: {current_batch_episode_idx}, episode_ids: {episode_ids}, last_batch_agent_start_pos: {last_batch_agent_start_pos}, last_batch_agent_target_pos: {last_batch_agent_target_pos}, last_batch_agent_current_pos: {last_batch_agent_current_pos}"
             )
         # print(
         #     f"epoch: {epoch}, batch_idx: {batch_idx}, episode_idx: {batch_data_items['episode_idx']}"
@@ -255,7 +286,6 @@ class GRPOTrainer:
         #     dim=1,
         # )
         batch_logits = self.policy(features)
-        # print(f"batch_logits: {batch_logits.shape}")
         batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
             logits=batch_logits, k=self.config.top_k
         )
@@ -357,58 +387,84 @@ class GRPOTrainer:
         train_dataloader = self.get_data_loader(dataset=train_dataset)
         eval_dataloader = self.get_data_loader(dataset=eval_dataset)
 
+        print(
+            f"train_dataloader: {len(train_dataloader)}, eval_dataloader: {len(eval_dataloader)}"
+        )
+
         step = 0
 
-        for epoch in range(self.config.epoches):
-            last_batch_episode_idx = None
-            for batch_idx, batch_data_items in enumerate(train_dataloader):
-                # step = epoch * len(train_dataloader) + batch_idx
-                current_batch_episode_idx = self.run_1_batch(
-                    batch_idx=batch_idx,
-                    batch_data_items=batch_data_items,
-                    dataset=train_dataset,
-                    debug=debug,
-                )
+        # Use the profiler to analyze the execution
+        with torch.profiler.profile(
+            schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/profile"),
+            record_shapes=True,
+            with_stack=True,
+        ) as prof:
+            for epoch in range(self.config.epoches):
+                last_batch_episode_idx = None
+                with tqdm(train_dataloader, desc=f"Epoch {epoch + 1}") as t:
+                    for batch_idx, batch_data_items in enumerate(t):
+                        # step = epoch * len(train_dataloader) + batch_idx
+                        current_batch_episode_idx = self.run_1_batch(
+                            batch_idx=batch_idx,
+                            batch_data_items=batch_data_items,
+                            dataset=train_dataset,
+                            debug=debug,
+                        )
 
-                if last_batch_episode_idx is None:
-                    last_batch_episode_idx = current_batch_episode_idx
+                        if last_batch_episode_idx is None:
+                            last_batch_episode_idx = current_batch_episode_idx
 
-                if (batch_idx + 1) % self.config.episode_steps == 0:
-                    assert last_batch_episode_idx == current_batch_episode_idx
-                    # print(
-                    #     f"optmized model. current_batch_episode_idx: {current_batch_episode_idx}"
-                    # )
-                    step += 1
-                    self.train_policy_with_cleanup(
-                        batch_episode_idices=current_batch_episode_idx,
-                        dataset=train_dataset,
-                        step=step,
-                        debug=debug,
-                    )
+                        should_run_optimization = (
+                            batch_idx + 1
+                        ) % self.config.episode_steps == 0
+                        if should_run_optimization:
+                            assert last_batch_episode_idx == current_batch_episode_idx
+                            # print(
+                            #     f"optmized model. current_batch_episode_idx: {current_batch_episode_idx}"
+                            # )
+                            step += 1
+                            self.train_policy_with_cleanup(
+                                batch_episode_idices=current_batch_episode_idx,
+                                dataset=train_dataset,
+                                step=step,
+                                debug=debug,
+                            )
 
-                    # reset last_batch_episode_idx
-                    last_batch_episode_idx = None
+                            # reset last_batch_episode_idx
+                            last_batch_episode_idx = None
 
-            if last_batch_episode_idx is not None:
-                # print(f"optmized model. last_batch_episode_idx: {last_batch_episode_idx}")
-                step += 1
+                            # Profile one step
+                            prof.step()
 
-                self.train_policy_with_cleanup(
-                    batch_episode_idices=last_batch_episode_idx,
-                    dataset=train_dataset,
-                    step=step,
-                    debug=debug,
-                )
+                        # Update progress bar description (optional)
+                        t.set_postfix(
+                            {
+                                "should_run_optimization": should_run_optimization,
+                                "current_batch_episode_idx": current_batch_episode_idx,
+                            }
+                        )
 
-            # Eval - each epoch
-            try:
-                self.eval_policy(
-                    dataset=eval_dataset,
-                    dataloader=eval_dataloader,
-                    step=step,
-                    epoch=epoch,
-                    debug=debug,
-                )
-            finally:
-                # reset to the train mode
-                self.policy.train()
+                    if last_batch_episode_idx is not None:
+                        # print(f"optmized model. last_batch_episode_idx: {last_batch_episode_idx}")
+                        step += 1
+
+                        self.train_policy_with_cleanup(
+                            batch_episode_idices=last_batch_episode_idx,
+                            dataset=train_dataset,
+                            step=step,
+                            debug=debug,
+                        )
+
+                    # Eval - each epoch
+                    try:
+                        self.eval_policy(
+                            dataset=eval_dataset,
+                            dataloader=eval_dataloader,
+                            step=step,
+                            epoch=epoch,
+                            debug=debug,
+                        )
+                    finally:
+                        # reset to the train mode
+                        self.policy.train()

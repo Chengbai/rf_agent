@@ -11,7 +11,6 @@ from src.config import Config
 @dataclass
 class Action:
     config: Config
-    possible_actions: list
     action_idx: int | None
     prob: torch.tensor | None
 
@@ -26,10 +25,20 @@ class Action:
 
         return Action(
             config=config,
-            possible_actions=config.possible_actions,
             action_idx=action_idx,
             prob=prob,
         )
+
+    def clone(self, idx: int) -> Action:
+        return Action(
+            config=self.config,
+            action_idx=self.action_idx,
+            prob=self.prob.clone() if self.prob is not None else None,
+        )
+
+    @property
+    def possible_actions(self):
+        return self.config.possible_actions
 
     def get_udpate(self):
         return self.possible_actions[self.action_idx]
