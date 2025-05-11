@@ -311,67 +311,83 @@ class GRPOTrainer:
         self.policy.eval()
         with torch.no_grad():
             eval_mean_episode_weighted_rewards = torch.tensor(0.0)
-            for batch_idx, batch_data_items in enumerate(dataloader):
-                try:
-                    # step = epoch * len(train_dataloader) + batch_idx
-                    current_batch_episode_idx = self.run_1_batch(
-                        batch_idx=batch_idx,
-                        batch_data_items=batch_data_items,
-                        dataset=dataset,
-                        debug=debug,
-                    )
-                    mean_episode_weighted_rewards: torch.tensor = (
-                        self.compute_batch_rewards(
-                            batch_episode_idices=current_batch_episode_idx,
+
+            with tqdm(dataloader, desc=f"Epoch {epoch + 1}") as t:
+                for batch_idx, batch_data_items in enumerate(t):
+                    try:
+                        # step = epoch * len(train_dataloader) + batch_idx
+                        current_batch_episode_idx = self.run_1_batch(
+                            batch_idx=batch_idx,
+                            batch_data_items=batch_data_items,
                             dataset=dataset,
-                            step=step,
-                            write_tensorboard=False,
+                            debug=debug,
                         )
-                    )
-
-                    mean_episode_weighted_rewards = torch.nan_to_num(
-                        mean_episode_weighted_rewards, nan=0.0
-                    )
-                    eval_mean_episode_weighted_rewards += mean_episode_weighted_rewards
-                finally:
-                    target_episodes = dataset.get_episods(
-                        batch_episode_idices=current_batch_episode_idx
-                    )
-                    for idx, episode in enumerate(target_episodes):
-                        if batch_idx == 0 and idx == 0:  # viz the 1st batch 1st item
-                            backend_ = mpl.get_backend()
-                            mpl.use("Agg")  # Prevent showing stuff
-
-                            # only viz the 1st episode
-                            # avoid too much data
-                            fig, axes = plt.subplots(
-                                nrows=1, ncols=2, figsize=self.config.double_figure_size
+                        mean_episode_weighted_rewards: torch.tensor = (
+                            self.compute_batch_rewards(
+                                batch_episode_idices=current_batch_episode_idx,
+                                dataset=dataset,
+                                step=step,
+                                write_tensorboard=False,
                             )
-                            episode.viz(
-                                ax=axes[0],
-                                reward_model=self.reward_model,
-                                color=get_color(0),
-                            )
-                            episode.viz_fov(
-                                ax=axes[1],
-                            )
-                            plot_buf = io.BytesIO()
-                            plt.savefig(plot_buf, format="jpeg")
-                            plot_buf.seek(0)
-                            image = PIL.Image.open(plot_buf)
-                            image = ToTensor()(image)
-                            self.writer.add_image(
-                                f"Eval Episod: {epoch}:{episode.id}", image, step
-                            )
+                        )
 
-                            mpl.use(backend_)  # Reset backend
+                        mean_episode_weighted_rewards = torch.nan_to_num(
+                            mean_episode_weighted_rewards, nan=0.0
+                        )
+                        eval_mean_episode_weighted_rewards += (
+                            mean_episode_weighted_rewards
+                        )
+                    finally:
+                        # Update progress bar description (optional)
+                        t.set_postfix(
+                            {
+                                "split": "EVAL",
+                                "current_batch_episode_idx": current_batch_episode_idx,
+                            }
+                        )
 
-                        episode.reset()
-            self.writer.add_scalar(
-                "Eval: mean_episode_weighted_rewards",
-                eval_mean_episode_weighted_rewards / len(dataloader),
-                step,
-            )
+                        target_episodes = dataset.get_episods(
+                            batch_episode_idices=current_batch_episode_idx
+                        )
+                        for idx, episode in enumerate(target_episodes):
+                            if (
+                                batch_idx == 0 and idx == 0
+                            ):  # viz the 1st batch 1st item
+                                backend_ = mpl.get_backend()
+                                mpl.use("Agg")  # Prevent showing stuff
+
+                                # only viz the 1st episode
+                                # avoid too much data
+                                fig, axes = plt.subplots(
+                                    nrows=1,
+                                    ncols=2,
+                                    figsize=self.config.double_figure_size,
+                                )
+                                episode.viz(
+                                    ax=axes[0],
+                                    reward_model=self.reward_model,
+                                    color=get_color(0),
+                                )
+                                episode.viz_fov(
+                                    ax=axes[1],
+                                )
+                                plot_buf = io.BytesIO()
+                                plt.savefig(plot_buf, format="jpeg")
+                                plot_buf.seek(0)
+                                image = PIL.Image.open(plot_buf)
+                                image = ToTensor()(image)
+                                self.writer.add_image(
+                                    f"Eval Episod: {epoch}:{episode.id}", image, step
+                                )
+
+                                mpl.use(backend_)  # Reset backend
+
+                            episode.reset()
+                self.writer.add_scalar(
+                    "Eval: mean_episode_weighted_rewards",
+                    eval_mean_episode_weighted_rewards / len(dataloader),
+                    step,
+                )
 
     def run(
         self,
@@ -440,6 +456,7 @@ class GRPOTrainer:
                         # Update progress bar description (optional)
                         t.set_postfix(
                             {
+                                "split": "TRAIN",
                                 "should_run_optimization": should_run_optimization,
                                 "current_batch_episode_idx": current_batch_episode_idx,
                             }

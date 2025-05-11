@@ -15,14 +15,14 @@ class Config:
     world_block_probability = 0.2
 
     # Dataset
-    train_dataset_length: int = 1000
-    train_batch_size: int = 20
+    train_dataset_length: int = 100
+    train_batch_size: int = 100
 
     test_dataset_length: int = 10
     test_batch_size: int = 5
 
     eval_dataset_length: int = 100
-    eval_batch_size: int = 5
+    eval_batch_size: int = train_batch_size
 
     # Actions
     possible_actions: torch.tensor = field(
@@ -62,8 +62,7 @@ class Config:
     lr = 1.0
     epoches: int = 2
     episode_group_size: int = 50
-    episode_steps: int = 2
-    eval_steps: int = 2
+    episode_steps: int = 20
     # episodes_per_iteration: int = 2
 
     # EPSILON
