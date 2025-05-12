@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import torch
 from torch.utils.data import Dataset
 
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 from random import random
 import time
 
@@ -70,9 +72,9 @@ class EpisodeDataset(Dataset):
     def update_step(
         self,
         batch_episode_idices: list[int],
-        batch_action_idx: torch.tensor,
-        batch_logit_prob: torch.tensor,
-        batch_top_k_prob: torch.tensor,
+        batch_action_idx: torch.Tensor,
+        batch_logit_prob: torch.Tensor,
+        batch_top_k_prob: torch.Tensor,
     ):
         assert batch_episode_idices is not None
         assert batch_action_idx is not None
@@ -84,17 +86,45 @@ class EpisodeDataset(Dataset):
             == batch_logit_prob.shape[0]
             == batch_top_k_prob.shape[0]
         )
-        for item_idx, episode_idx in enumerate(batch_episode_idices):
-            episode: Episode = self.get_episode(episode_idx)
+
+        # Batch update the episodes
+        def _update_episode(
+            action_idx: int,
+            prob: torch.Tensor,
+            episode_id: int,
+        ):
+            episode: Episode = self.get_episode(episode_id)
             assert episode is not None
 
             episode.take_action(
                 action=Action.create_from(
                     config=self.config,
-                    action_idx=batch_action_idx[item_idx][0],
-                    prob=batch_logit_prob[item_idx],
+                    action_idx=action_idx,
+                    prob=prob,
                 ),
             )
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = []
+            for item_idx, episode_idx in enumerate(batch_episode_idices):
+                action_idx = batch_action_idx[item_idx][0]
+                prob = batch_logit_prob[item_idx]
+                future = executor.submit(_update_episode, action_idx, prob, episode_idx)
+
+            for future in futures:
+                future.result()
+
+        # for item_idx, episode_idx in enumerate(batch_episode_idices):
+        #     episode: Episode = self.get_episode(episode_idx)
+        #     assert episode is not None
+
+        #     episode.take_action(
+        #         action=Action.create_from(
+        #             config=self.config,
+        #             action_idx=batch_action_idx[item_idx][0],
+        #             prob=batch_logit_prob[item_idx],
+        #         ),
+        #     )
 
     def get_episods(self, batch_episode_idices: list[int]) -> list[Episode]:
         target_episodes = []

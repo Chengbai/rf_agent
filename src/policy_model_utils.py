@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data.dataloader import default_collate
 
+from src.action import Action
 from src.config import Config
 from src.episode import Episode
 from src.policy import Policy

@@ -12,16 +12,16 @@ class Config:
     world_max_y: int = 51
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
-    world_block_probability = 0.2
+    world_block_probability = 0.1
 
     # Dataset
-    train_dataset_length: int = 100
-    train_batch_size: int = 100
+    train_dataset_length: int = 1_000
+    train_batch_size: int = 50
 
-    test_dataset_length: int = 10
-    test_batch_size: int = 5
+    test_dataset_length: int = 1_000
+    test_batch_size: int = 50
 
-    eval_dataset_length: int = 100
+    eval_dataset_length: int = 1_000
     eval_batch_size: int = train_batch_size
 
     # Actions

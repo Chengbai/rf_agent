@@ -66,7 +66,7 @@ class GRPOTrainer:
             dataset,
             batch_size=batch_size * self.config.episode_group_size,
             sampler=batch_repeat_sampler,
-            pin_memory=True,
+            # pin_memory=True,
             collate_fn=to_device_collate_configurable,
         )
         return dataloader
@@ -195,9 +195,9 @@ class GRPOTrainer:
         # Adjust learning weights
         self.optimizer.step()
 
-        for name, param in self.policy.brain.named_parameters():
-            if param.grad is not None:
-                self.writer.add_histogram(f"{name}.grad", param.grad, step)
+        # for name, param in self.policy.brain.named_parameters():
+        #     if param.grad is not None:
+        #         self.writer.add_histogram(f"{name}.grad", param.grad, step)
 
     def train_policy_with_cleanup(
         self,
@@ -310,7 +310,9 @@ class GRPOTrainer:
     ):
         self.policy.eval()
         with torch.no_grad():
-            eval_mean_episode_weighted_rewards = torch.tensor(0.0)
+            eval_mean_episode_weighted_rewards = torch.tensor(
+                0.0, device=self.config.device
+            )
 
             with tqdm(dataloader, desc=f"Epoch {epoch + 1}") as t:
                 for batch_idx, batch_data_items in enumerate(t):
@@ -332,7 +334,10 @@ class GRPOTrainer:
                         )
 
                         mean_episode_weighted_rewards = torch.nan_to_num(
-                            mean_episode_weighted_rewards, nan=0.0
+                            mean_episode_weighted_rewards,
+                            nan=0.0,
+                        ).to(
+                            device=self.config.device,
                         )
                         eval_mean_episode_weighted_rewards += (
                             mean_episode_weighted_rewards
@@ -393,6 +398,7 @@ class GRPOTrainer:
         self,
         train_dataset: EpisodeDataset,
         eval_dataset: EpisodeDataset,
+        profile: bool = False,
         debug: bool = False,
     ):
         assert train_dataset is not None
@@ -407,15 +413,8 @@ class GRPOTrainer:
             f"train_dataloader: {len(train_dataloader)}, eval_dataloader: {len(eval_dataloader)}"
         )
 
-        step = 0
-
-        # Use the profiler to analyze the execution
-        with torch.profiler.profile(
-            schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/profile"),
-            record_shapes=True,
-            with_stack=True,
-        ) as prof:
+        def _run_internal(prof=None):
+            step = 0
             for epoch in range(self.config.epoches):
                 last_batch_episode_idx = None
                 with tqdm(train_dataloader, desc=f"Epoch {epoch + 1}") as t:
@@ -451,7 +450,8 @@ class GRPOTrainer:
                             last_batch_episode_idx = None
 
                             # Profile one step
-                            prof.step()
+                            if prof is not None:
+                                prof.step()
 
                         # Update progress bar description (optional)
                         t.set_postfix(
@@ -474,14 +474,35 @@ class GRPOTrainer:
                         )
 
                     # Eval - each epoch
-                    try:
-                        self.eval_policy(
-                            dataset=eval_dataset,
-                            dataloader=eval_dataloader,
-                            step=step,
-                            epoch=epoch,
-                            debug=debug,
-                        )
-                    finally:
-                        # reset to the train mode
-                        self.policy.train()
+                    # try:
+                    #     self.eval_policy(
+                    #         dataset=eval_dataset,
+                    #         dataloader=eval_dataloader,
+                    #         step=step,
+                    #         epoch=epoch,
+                    #         debug=debug,
+                    #     )
+                    # finally:
+                    #     # reset to the train mode
+                    #     self.policy.train()
+
+        if not profile:
+            _run_internal()
+        else:
+            # Use the profiler to analyze the execution
+            activities = [
+                torch.profiler.ProfilerActivity.CPU,
+            ]
+            with torch.profiler.profile(
+                schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler(
+                    "./runs/profile"
+                ),
+                activities=activities,
+                record_shapes=True,
+                profile_memory=True,
+                with_stack=True,
+                with_flops=True,
+                with_modules=True,
+            ) as prof:
+                _run_internal(prof=prof)
