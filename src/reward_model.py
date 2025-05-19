@@ -59,3 +59,15 @@ class RewardModel:
         # moving closer, get reward
         # l2-norm
         return -torch.linalg.vector_norm(cur_pos - target_position, ord=2)
+
+    def reward(
+        self, batach_cur_pos: torch.Tensor, batch_target_pos: torch.Tensor
+    ) -> float:
+        assert batach_cur_pos is not None
+        assert batch_target_pos is not None
+
+        # moving closer, get reward
+        # l2-norm
+        return -torch.linalg.vector_norm(
+            batach_cur_pos - batch_target_pos, dim=1, ord=2
+        )

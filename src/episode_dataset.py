@@ -64,6 +64,10 @@ class EpisodeDataset(Dataset):
             # "position": target_episode.agent.current_state.position(),
             # "normalized_position": target_episode.agent.current_state.normalized_position(),
             "fov": target_episode.fov(target_episode.agent.current_state.position()),
+            "fov_block_mask": target_episode.fov(
+                target_episode.agent.current_state.position()
+            )
+            == self.config.ENCODE_BLOCK,
         }
 
     def get_episode(self, index: int) -> Episode:

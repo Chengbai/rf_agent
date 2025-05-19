@@ -16,6 +16,7 @@ from src.episode import Episode
 from src.episode_batch_reat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeDataset
 from src.policy import Policy
+from src.rl_data_record import RLDataRecord
 from src.utils import get_color, to_device_collate, top_k_sampling
 from src.reward_model import RewardModel
 
@@ -73,107 +74,112 @@ class GRPOTrainer:
 
     def compute_batch_rewards(
         self,
+        batch_rl_data_record: RLDataRecord,
         batch_episode_idices: list[int],
         dataset: EpisodeDataset,
         step: int,
         write_tensorboard: bool = True,
     ) -> torch.tensor:
+        assert batch_rl_data_record is not None
         assert batch_episode_idices is not None
         assert len(batch_episode_idices) > 0
         assert dataset is not None
 
         # 1. get target episodes
-        target_episodes = dataset.get_episods(batch_episode_idices=batch_episode_idices)
-        episode_ids = [dataset.get_episode(i).id for i in batch_episode_idices]
-        # 2. Compute the Advantages
-        episodes_rewards = torch.tensor(
-            [
-                episode.reward(reward_model=self.reward_model)
-                for episode in target_episodes
-            ],
-            device=self.config.device,
+        batch_episodes_rewards = self.reward_model.reward(
+            batach_cur_pos=batch_rl_data_record.batch_agent_current_pos,
+            batch_target_pos=batch_rl_data_record.batch_agent_target_pos,
         )
-        # print(f"episodes rewards: {episodes_rewards}")
+        # print(f"episodes: {batch_episodes_rewards}")
 
         # B x G
-        group_episodes_rewards = episodes_rewards.view(
+        batch_group_episodes_rewards = batch_episodes_rewards.view(
             -1,
             self.config.episode_group_size,
         )
 
         # B x 1
-        group_r_std, group_r_mean = torch.std_mean(
-            group_episodes_rewards, dim=1, keepdim=True
+        batch_group_r_std, batch_group_r_mean = torch.std_mean(
+            batch_group_episodes_rewards, dim=1, keepdim=True
         )
         if write_tensorboard:
-            self.writer.add_tensor("group_r_std", group_r_std, step)
-            self.writer.add_tensor("group_r_mean", group_r_mean, step)
-        # if torch.isnan(group_r_std) or group_r_std == 0.0:
-        #     # print(f"invalid episode, group_r_std: {r_std}")
+            self.writer.add_tensor("batch_group_r_std", batch_group_r_std, step)
+            self.writer.add_tensor("batch_group_r_mean", batch_group_r_mean, step)
+        # if torch.isnan(batch_group_r_std) or batch_group_r_std == 0.0:
+        #     # print(f"invalid episode, batch_group_r_std: {r_std}")
         #     return
 
-        group_r_std = torch.nan_to_num(group_r_std, nan=1.0)
-        group_r_std[group_r_std == 0.0] = 1.0
+        batch_group_r_std = torch.nan_to_num(batch_group_r_std, nan=1.0)
+        batch_group_r_std[batch_group_r_std == 0.0] = 1.0
 
         # B x G
-        group_r_advantages = (group_episodes_rewards - group_r_mean) / group_r_std
-        # print(f"group_r_std: {group_r_std}, r_mean: {r_mean}, r_advantages: {r_advantages}")
+        batch_group_r_advantages = (
+            batch_group_episodes_rewards - batch_group_r_mean
+        ) / batch_group_r_std
+        # print(f"batch_group_r_std: {batch_group_r_std}, r_mean: {r_mean}, r_advantages: {r_advantages}")
 
         # 3. Compute the KL-
         # N/A
 
         # 4. Compute weighted rewards
         # B x G
-        group_advantage_weighted_rewards = group_episodes_rewards * group_r_advantages
-        # print(f"group_advantage_weighted_rewards: {group_advantage_weighted_rewards}")
-
-        episode_log_probs = torch.concat(
-            [episode.log_reward_prob() for episode in target_episodes]
+        batch_group_advantage_weighted_rewards = (
+            batch_group_episodes_rewards * batch_group_r_advantages
         )
+        # print(f"batch_group_advantage_weighted_rewards: {batch_group_advantage_weighted_rewards}")
 
         # B x G
-        group_episode_log_probs = episode_log_probs.view(
-            -1,
-            self.config.episode_group_size,
+        batch_group_episode_log_probs = (
+            batch_rl_data_record.batch_logit_prob_history.view(
+                -1,
+                self.config.episode_group_size,
+            )
         )
         # print(f"episode_log_probs: {episode_log_probs}")
         if write_tensorboard:
             self.writer.add_tensor(
-                f"group_episode_log_probs", group_episode_log_probs, step
+                f"batch_group_episode_log_probs", batch_group_episode_log_probs, step
             )
 
-        episode_probs = torch.concat(
-            [episode.reward_prob() for episode in target_episodes]
+        # B x G
+        batch_group_episode_probs = batch_rl_data_record.batch_top_k_prob_history.view(
+            -1, self.config.episode_group_size
         )
-
-        # B x G
-        group_episode_probs = episode_probs.view(-1, self.config.episode_group_size)
-        # print(f"group_episode_probs: {group_episode_probs}")
-        if write_tensorboard:
-            self.writer.add_tensor(f"group_episode_probs", group_episode_probs, step)
-
-        # B x G
-        group_episode_weighted_rewards = (
-            group_advantage_weighted_rewards * group_episode_log_probs
-        )  # episode_probs
-        # print(f"group_episode_weighted_rewards: {group_episode_weighted_rewards}")
+        # print(f"batch_group_episode_probs: {batch_group_episode_probs}")
         if write_tensorboard:
             self.writer.add_tensor(
-                f"group_episode_weighted_rewards", group_episode_weighted_rewards, step
+                f"batch_group_episode_probs", batch_group_episode_probs, step
+            )
+
+        # B x G
+        batch_group_episode_weighted_rewards = (
+            batch_group_advantage_weighted_rewards * batch_group_episode_log_probs
+        )  # episode_probs
+        # print(f"batch_group_episode_weighted_rewards: {batch_group_episode_weighted_rewards}")
+        if write_tensorboard:
+            self.writer.add_tensor(
+                f"batch_group_episode_weighted_rewards",
+                batch_group_episode_weighted_rewards,
+                step,
             )
 
         # 1
-        mean_episode_weighted_rewards = torch.mean(group_episode_weighted_rewards)
-        # print(f"mean_episode_weighted_rewards: {mean_episode_weighted_rewards}")
+        batch_mean_episode_weighted_rewards = torch.mean(
+            batch_group_episode_weighted_rewards
+        )
+        # print(f"batch_mean_episode_weighted_rewards: {batch_mean_episode_weighted_rewards}")
         if write_tensorboard:
             self.writer.add_scalar(
-                "mean_episode_weighted_rewards", mean_episode_weighted_rewards, step
+                "batch_mean_episode_weighted_rewards",
+                batch_mean_episode_weighted_rewards,
+                step,
             )
-        return mean_episode_weighted_rewards
+        return batch_mean_episode_weighted_rewards
 
     def train_policy(
         self,
         batch_episode_idices: list[int],
+        batch_rl_data_record: RLDataRecord,
         dataset: EpisodeDataset,
         step: int,
     ):
@@ -183,14 +189,17 @@ class GRPOTrainer:
         assert dataset.split == "TRAIN"
 
         # Compute metrics and gradient
-        mean_episode_weighted_rewards: torch.tensor = self.compute_batch_rewards(
-            batch_episode_idices=batch_episode_idices, dataset=dataset, step=step
+        batch_mean_episode_weighted_rewards: torch.tensor = self.compute_batch_rewards(
+            batch_rl_data_record=batch_rl_data_record,
+            batch_episode_idices=batch_episode_idices,
+            dataset=dataset,
+            step=step,
         )
 
         # Optimization
         # Zero your gradients for every batch!
         self.optimizer.zero_grad()
-        mean_episode_weighted_rewards.backward()
+        batch_mean_episode_weighted_rewards.backward()
 
         # Adjust learning weights
         self.optimizer.step()
@@ -202,6 +211,7 @@ class GRPOTrainer:
     def train_policy_with_cleanup(
         self,
         batch_episode_idices: list[int],
+        batch_rl_data_record: RLDataRecord,
         dataset: EpisodeDataset,
         step: int,
         debug: bool,
@@ -209,6 +219,7 @@ class GRPOTrainer:
         try:
             self.train_policy(
                 batch_episode_idices=batch_episode_idices,
+                batch_rl_data_record=batch_rl_data_record,
                 dataset=dataset,
                 step=step,
             )
@@ -238,67 +249,33 @@ class GRPOTrainer:
 
     def run_1_batch(
         self,
-        batch_idx: list,
-        batch_data_items: dict,
+        batch_rl_data_record: RLDataRecord,
         dataset: EpisodeDataset,
+        step: int,
         debug: bool = False,
     ):
-        assert batch_idx >= 0
-        assert batch_data_items
+        assert batch_rl_data_record is not None
         assert dataset is not None
 
-        # to be optimized `episode_idx`
-        current_batch_episode_idx = batch_data_items["episode_idx"]
-        last_batch_agent_start_pos = batch_data_items["agent_start_pos"]
-        last_batch_agent_target_pos = batch_data_items["agent_target_pos"]
-        last_batch_agent_current_pos = batch_data_items["agent_current_pos"]
+        # Flaten the fov
+        B, FOV_H, FOV_W = batch_rl_data_record.fov.shape
+        batch_fov = batch_rl_data_record.fov.reshape(shape=(B, -1))
 
-        if debug:
-            episode_ids = [dataset.get_episode(i).id for i in current_batch_episode_idx]
-            print(
-                f"current_batch_episode_idx: {current_batch_episode_idx}, episode_ids: {episode_ids}, last_batch_agent_start_pos: {last_batch_agent_start_pos}, last_batch_agent_target_pos: {last_batch_agent_target_pos}, last_batch_agent_current_pos: {last_batch_agent_current_pos}"
-            )
-        # print(
-        #     f"epoch: {epoch}, batch_idx: {batch_idx}, episode_idx: {batch_data_items['episode_idx']}"
-        # )
-
-        # print(
-        #     {
-        #         k: v.size()
-        #         for k, v in batch_data_items.items()
-        #         if isinstance(v, torch.Tensor)
-        #     }
-        # )
-        batch_fov = batch_data_items["fov"]
-        B, FOV_H, FOV_W = batch_fov.shape
-
-        batch_fov = batch_fov.reshape(shape=(B, -1))
-
-        # feature: [B, fov]
-        features = batch_fov
-        # feature: [B, current_pos, target_pos, fov]
-        # features = torch.concat(
-        #     [
-        #         last_batch_agent_current_pos,
-        #         last_batch_agent_target_pos,
-        #         batch_fov,
-        #     ],
-        #     dim=1,
-        # )
-        batch_logits = self.policy(features)
+        batch_logits = self.policy(batch_fov)
         batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
             logits=batch_logits, k=self.config.top_k
         )
         # print(
         #     f"batch_action_idx: {batch_action_idx}, batch_logit_prob: {batch_logit_prob}, batch_top_k_prob: {batch_top_k_prob}"
         # )
-        dataset.update_step(
-            batch_episode_idices=batch_data_items["episode_idx"],
+        batch_rl_data_record.update_step(
             batch_action_idx=batch_action_idx,
             batch_logit_prob=batch_logit_prob,
             batch_top_k_prob=batch_top_k_prob,
+            step=step,
+            debug=debug,
         )
-        return current_batch_episode_idx
+        return batch_rl_data_record.current_batch_episode_idx
 
     def eval_policy(
         self,
@@ -318,13 +295,16 @@ class GRPOTrainer:
                 for batch_idx, batch_data_items in enumerate(t):
                     try:
                         # step = epoch * len(train_dataloader) + batch_idx
+                        batch_rl_data_record = RLDataRecord(
+                            config=self.config, batch_data_items=batch_data_items
+                        )
                         current_batch_episode_idx = self.run_1_batch(
-                            batch_idx=batch_idx,
-                            batch_data_items=batch_data_items,
+                            batch_rl_data_record=batch_rl_data_record,
                             dataset=dataset,
+                            step=step,
                             debug=debug,
                         )
-                        mean_episode_weighted_rewards: torch.tensor = (
+                        batch_mean_episode_weighted_rewards: torch.tensor = (
                             self.compute_batch_rewards(
                                 batch_episode_idices=current_batch_episode_idx,
                                 dataset=dataset,
@@ -333,14 +313,14 @@ class GRPOTrainer:
                             )
                         )
 
-                        mean_episode_weighted_rewards = torch.nan_to_num(
-                            mean_episode_weighted_rewards,
+                        batch_mean_episode_weighted_rewards = torch.nan_to_num(
+                            batch_mean_episode_weighted_rewards,
                             nan=0.0,
                         ).to(
                             device=self.config.device,
                         )
                         eval_mean_episode_weighted_rewards += (
-                            mean_episode_weighted_rewards
+                            batch_mean_episode_weighted_rewards
                         )
                     finally:
                         # Update progress bar description (optional)
@@ -389,7 +369,7 @@ class GRPOTrainer:
 
                             episode.reset()
                 self.writer.add_scalar(
-                    "Eval: mean_episode_weighted_rewards",
+                    "Eval: batch_mean_episode_weighted_rewards",
                     eval_mean_episode_weighted_rewards / len(dataloader),
                     step,
                 )
@@ -414,16 +394,22 @@ class GRPOTrainer:
         )
 
         def _run_internal(prof=None):
+            torch.autograd.set_detect_anomaly(True)
+            self.policy.train()
             step = 0
             for epoch in range(self.config.epoches):
                 last_batch_episode_idx = None
+                batch_rl_data_record = None
                 with tqdm(train_dataloader, desc=f"Epoch {epoch + 1}") as t:
                     for batch_idx, batch_data_items in enumerate(t):
                         # step = epoch * len(train_dataloader) + batch_idx
+                        batch_rl_data_record = RLDataRecord(
+                            config=self.config, batch_data_items=batch_data_items
+                        )
                         current_batch_episode_idx = self.run_1_batch(
-                            batch_idx=batch_idx,
-                            batch_data_items=batch_data_items,
+                            batch_rl_data_record=batch_rl_data_record,
                             dataset=train_dataset,
+                            step=step,
                             debug=debug,
                         )
 
@@ -441,6 +427,7 @@ class GRPOTrainer:
                             step += 1
                             self.train_policy_with_cleanup(
                                 batch_episode_idices=current_batch_episode_idx,
+                                batch_rl_data_record=batch_rl_data_record,
                                 dataset=train_dataset,
                                 step=step,
                                 debug=debug,
@@ -457,17 +444,21 @@ class GRPOTrainer:
                         t.set_postfix(
                             {
                                 "split": "TRAIN",
+                                "step": step,
+                                "batch_idx": batch_idx,
                                 "should_run_optimization": should_run_optimization,
                                 "current_batch_episode_idx": current_batch_episode_idx,
                             }
                         )
 
                     if last_batch_episode_idx is not None:
+                        assert batch_rl_data_record is not None
                         # print(f"optmized model. last_batch_episode_idx: {last_batch_episode_idx}")
                         step += 1
 
                         self.train_policy_with_cleanup(
                             batch_episode_idices=last_batch_episode_idx,
+                            batch_rl_data_record=batch_rl_data_record,
                             dataset=train_dataset,
                             step=step,
                             debug=debug,

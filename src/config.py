@@ -5,29 +5,33 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Config:
+    # Device
+    device = torch.device("cpu")  # torch.device("mps")
+
     # world
     world_min_x: int = 0
-    world_max_x: int = 51
+    world_max_x: int = 11
     world_min_y: int = 0
-    world_max_y: int = 51
+    world_max_y: int = 11
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
     world_block_probability = 0.1
 
     # Dataset
-    train_dataset_length: int = 1_000
-    train_batch_size: int = 50
+    train_dataset_length: int = 1000
+    train_batch_size: int = 20
 
-    test_dataset_length: int = 1_000
-    test_batch_size: int = 50
+    test_dataset_length: int = 10
+    test_batch_size: int = 2
 
-    eval_dataset_length: int = 1_000
+    eval_dataset_length: int = 1000
     eval_batch_size: int = train_batch_size
 
     # Actions
     possible_actions: torch.tensor = field(
         default_factory=lambda: torch.tensor(
-            [(1 * i, 1 * j) for i in range(-1, 2) for j in range(-1, 2)]
+            [(1 * i, 1 * j) for i in range(-1, 2) for j in range(-1, 2)],
+            device=Config.device,
         )
     )
 
@@ -62,14 +66,11 @@ class Config:
     lr = 1.0
     epoches: int = 2
     episode_group_size: int = 50
-    episode_steps: int = 20
+    episode_steps: int = 10
     # episodes_per_iteration: int = 2
 
     # EPSILON
     epsilon = 1e-5
-
-    # Device
-    device = torch.device("cpu")  # torch.device("mps")
 
     # Figure size
     figure_size: tuple[int, int] = (5, 5)

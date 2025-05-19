@@ -25,7 +25,7 @@ class Policy(nn.Module):
     def _init_parameters(self):
         for layer in self.brain:
             if isinstance(layer, nn.Linear):
-                nn.init.kaiming_uniform_(layer.weight)
+                layer.weight = nn.init.kaiming_uniform(layer.weight)
 
     def forward(self, x: torch.tensor):
         assert x is not None
