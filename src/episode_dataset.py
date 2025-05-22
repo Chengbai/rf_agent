@@ -75,17 +75,17 @@ class EpisodeDataset(Dataset):
 
     def update_step(
         self,
-        batch_episode_idices: list[int],
+        batch_episode_indices: list[int],
         batch_action_idx: torch.Tensor,
         batch_logit_prob: torch.Tensor,
         batch_top_k_prob: torch.Tensor,
     ):
-        assert batch_episode_idices is not None
+        assert batch_episode_indices is not None
         assert batch_action_idx is not None
         assert batch_logit_prob is not None
         assert batch_top_k_prob is not None
         assert (
-            len(batch_episode_idices)
+            len(batch_episode_indices)
             == batch_action_idx.shape[0]
             == batch_logit_prob.shape[0]
             == batch_top_k_prob.shape[0]
@@ -110,7 +110,7 @@ class EpisodeDataset(Dataset):
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = []
-            for item_idx, episode_idx in enumerate(batch_episode_idices):
+            for item_idx, episode_idx in enumerate(batch_episode_indices):
                 action_idx = batch_action_idx[item_idx][0]
                 prob = batch_logit_prob[item_idx]
                 future = executor.submit(_update_episode, action_idx, prob, episode_idx)
@@ -118,7 +118,7 @@ class EpisodeDataset(Dataset):
             for future in futures:
                 future.result()
 
-        # for item_idx, episode_idx in enumerate(batch_episode_idices):
+        # for item_idx, episode_idx in enumerate(batch_episode_indices):
         #     episode: Episode = self.get_episode(episode_idx)
         #     assert episode is not None
 
@@ -130,9 +130,9 @@ class EpisodeDataset(Dataset):
         #         ),
         #     )
 
-    def get_episods(self, batch_episode_idices: list[int]) -> list[Episode]:
+    def get_episods(self, batch_episode_indices: list[int]) -> list[Episode]:
         target_episodes = []
-        for episode_idx in batch_episode_idices:
+        for episode_idx in batch_episode_indices:
             episode: Episode = self.get_episode(episode_idx)
             assert episode is not None
             target_episodes.append(episode)

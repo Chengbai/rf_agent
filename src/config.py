@@ -19,13 +19,13 @@ class Config:
 
     # Dataset
     train_dataset_length: int = 1000
-    train_batch_size: int = 20
+    train_batch_size: int = 10
 
     test_dataset_length: int = 10
     test_batch_size: int = 2
 
     eval_dataset_length: int = 1000
-    eval_batch_size: int = train_batch_size
+    eval_batch_size: int = eval_dataset_length // 5
 
     # Actions
     possible_actions: torch.tensor = field(
@@ -65,7 +65,7 @@ class Config:
     # Train / Eval / Test
     lr = 1.0
     epoches: int = 2
-    episode_group_size: int = 50
+    episode_group_size: int = 2
     episode_steps: int = 10
     # episodes_per_iteration: int = 2
 
@@ -75,6 +75,7 @@ class Config:
     # Figure size
     figure_size: tuple[int, int] = (5, 5)
     double_figure_size: tuple[int, int] = (10, 5)
+    triple_figure_size: tuple[int, int] = (15, 5)
 
     # Rewards
     max_reward = torch.tensor(500.0)

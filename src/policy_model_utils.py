@@ -60,9 +60,12 @@ def inference_and_plot_policy(
     episode.inference_steps_by_policy(steps=steps, policy=policy, debug=debug)
     # print(f"end state: {episode.agent.current_state}")
 
-    fig = plt.figure(figsize=config.figure_size)
-    ax = fig.add_subplot(1, 1, 1)
+    fig = plt.figure(figsize=config.double_figure_size)
+    ax = fig.add_subplot(1, 2, 1)
     episode.viz(ax=ax, reward_model=reward_model, color=get_color(0))
+
+    ax = fig.add_subplot(1, 2, 2)
+    episode.viz_fov(ax=ax)
     plt.show()
 
     return episode

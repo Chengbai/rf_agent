@@ -42,8 +42,10 @@ class Episode:
             id=id if id else "target_state",
             x=0.0,
             y=0.0,
-            # x=random.uniform(config.world_min_x, config.world_max_x),
-            # y=random.uniform(config.world_min_y, config.world_max_y),
+            # x=config.world_min_x,
+            # y=config.world_max_y - 1.0,
+            # x=random.uniform(config.world_min_x, config.world_max_x - 1.0),
+            # y=random.uniform(config.world_min_y, config.world_max_y - 1.0),
         )
         agent = Agent.create_from(
             id=id, start_state=start_state, target_state=target_state
@@ -140,10 +142,14 @@ class Episode:
 
     def reward(self, reward_model: RewardModel) -> torch.tensor:
         assert reward_model is not None
-        return reward_model.state_reward(
-            world=self.world,
-            agent=self.agent,
-            state=self.agent.state_history[-1],
+        # return reward_model.state_reward(
+        #     world=self.world,
+        #     agent=self.agent,
+        #     state=self.agent.state_history[-1],
+        # )
+        return reward_model.reward(
+            batach_cur_pos=self.agent.current_state.position()[None, :],
+            batch_target_pos=self.agent.target_state.position()[None, :],
         )
 
     def log_reward_prob(self) -> torch.tensor:

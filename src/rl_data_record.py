@@ -1,7 +1,10 @@
+import matplotlib
+import matplotlib.cm as cm
 import torch
 import torch.nn as nn
 
 from src.config import Config
+from src.reward_model import RewardModel
 
 
 class RLDataRecord(nn.Module):
@@ -42,13 +45,13 @@ class RLDataRecord(nn.Module):
         batch_agent_next_pos[:, 0] = torch.clamp(
             batch_agent_next_pos[:, 0],
             min=self.config.world_min_y,
-            max=self.config.world_max_y,
+            max=self.config.world_max_y - 1,
         )
 
         batch_agent_next_pos[:, 1] = torch.clamp(
             batch_agent_next_pos[:, 1],
             min=self.config.world_min_x,
-            max=self.config.world_max_x,
+            max=self.config.world_max_x - 1,
         )
 
         B, positions = batch_agent_next_pos.size()
@@ -72,11 +75,20 @@ class RLDataRecord(nn.Module):
         batch_actions[blocked_pos_mask] = torch.tensor(
             [0, 0], device=self.config.device
         )
+
         # batch_actions[self.batch_at_target_position_mask] = torch.tensor([0, 0])
         self.batch_agent_current_pos += batch_actions
+        self.batch_agent_current_pos[:, 0] = torch.clamp(
+            self.batch_agent_current_pos[:, 0],
+            min=self.config.world_min_y,
+            max=self.config.world_max_y - 1,
+        )
 
-        # Action Index Overwrite
-        # batch_action_idx[self.batch_at_target_position_mask] = self.NO_MOVE_ACTION_INDEX
+        self.batch_agent_current_pos[:, 1] = torch.clamp(
+            self.batch_agent_current_pos[:, 1],
+            min=self.config.world_min_x,
+            max=self.config.world_max_x - 1,
+        )
 
         # Update the fov
         y_indices = self.batch_agent_current_pos[:, 0]
@@ -91,7 +103,7 @@ class RLDataRecord(nn.Module):
             self.batch_action_idx_history = batch_action_idx
         else:
             self.batch_action_idx_history = torch.vstack(
-                (self.self.batch_action_idx_history, batch_action_idx)
+                (self.batch_action_idx_history, batch_action_idx)
             )
 
         # Save the history -- batch_logit_prob
@@ -99,7 +111,7 @@ class RLDataRecord(nn.Module):
             self.batch_logit_prob_history = batch_logit_prob
         else:
             self.batch_logit_prob_history = torch.vstack(
-                (self.self.batch_logit_prob_history, batch_logit_prob)
+                (self.batch_logit_prob_history, batch_logit_prob)
             )
 
         # Save the history -- batch_top_k_prob
@@ -107,11 +119,43 @@ class RLDataRecord(nn.Module):
             self.batch_top_k_prob_history = batch_top_k_prob
         else:
             self.batch_top_k_prob_history = torch.vstack(
-                (self.self.batch_top_k_prob_history, batch_top_k_prob)
+                (self.batch_top_k_prob_history, batch_top_k_prob)
             )
 
         assert (
             self.batch_action_idx_history.size()
             == self.batch_logit_prob_history.size()
             == self.batch_top_k_prob_history.size()
+        )
+
+    def viz_fov(
+        self,
+        ax: matplotlib.axes._axes.Axes,
+        idx: int = 0,
+        reward_model: RewardModel = None,
+    ):
+        assert ax is not None
+        ax.pcolormesh(self.fov[idx], cmap=cm.gray, edgecolors="gray", linewidths=0.5)
+        if reward_model is not None:
+            rewards = self.reward(reward_model=reward_model)
+            ax.set_title(
+                f"episode: {self.current_batch_episode_idx[idx]}: reward: {rewards[idx].item()}"
+            )
+
+            cur_pos = self.batch_agent_current_pos[idx]
+            x0 = int(cur_pos[1])
+            y0 = int(cur_pos[0])
+            ax.annotate(
+                f"final",
+                xy=(x0, y0),
+                xycoords="data",
+                color="green",
+                fontsize=12,
+            )
+
+    def reward(self, reward_model: RewardModel) -> torch.tensor:
+        assert reward_model is not None
+        return reward_model.reward(
+            batach_cur_pos=self.batch_agent_current_pos,
+            batch_target_pos=self.batch_agent_target_pos,
         )
