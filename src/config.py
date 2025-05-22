@@ -19,7 +19,7 @@ class Config:
 
     # Dataset
     train_dataset_length: int = 1000
-    train_batch_size: int = 10
+    train_batch_size: int = 100
 
     test_dataset_length: int = 10
     test_batch_size: int = 2
@@ -63,9 +63,9 @@ class Config:
 
     # GRPO policy training
     # Train / Eval / Test
-    lr = 1.0
-    epoches: int = 2
-    episode_group_size: int = 2
+    lr = 10.0
+    epoches: int = 10
+    episode_group_size: int = 50
     episode_steps: int = 10
     # episodes_per_iteration: int = 2
 

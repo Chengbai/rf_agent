@@ -138,18 +138,23 @@ class RLDataRecord(nn.Module):
         ax.pcolormesh(self.fov[idx], cmap=cm.gray, edgecolors="gray", linewidths=0.5)
         if reward_model is not None:
             rewards = self.reward(reward_model=reward_model)
+
+            # B x G x S
+            batch_logit_prob_history = self.batch_logit_prob_history.reshape(
+                (-1, self.config.episode_steps)
+            )
             ax.set_title(
-                f"episode: {self.current_batch_episode_idx[idx]}: reward: {rewards[idx].item()}"
+                f"episode: {self.current_batch_episode_idx[idx]}: reward: {rewards[idx].item():.2f}"
             )
 
             cur_pos = self.batch_agent_current_pos[idx]
             x0 = int(cur_pos[1])
             y0 = int(cur_pos[0])
             ax.annotate(
-                f"final",
+                f"final:p{batch_logit_prob_history[idx][-1].item()*100.:.1f}%",
                 xy=(x0, y0),
                 xycoords="data",
-                color="green",
+                color="red",
                 fontsize=12,
             )
 
