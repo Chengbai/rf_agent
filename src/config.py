@@ -1,6 +1,7 @@
 import torch
 
 from dataclasses import dataclass, field
+from matplotlib.colors import ListedColormap
 
 
 @dataclass
@@ -39,13 +40,14 @@ class Config:
     field_of_view_width: int = world_width // 2  # FOV width
     field_of_view_height: int = world_height // 2  # FOV height
 
-    ENCODE_BLOCK: int = 0
+    ENCODE_TARGET_POS: int = 0
+    ENCODE_BLOCK: int = 100
     ENCODE_START_POS: int = 128
-    ENCODE_START_STEP_IDX = 150
-    ENCODE_TARGET_POS: int = 200
+    ENCODE_START_STEP_IDX = 200
     ENCODE_EMPTY: int = 255
 
-    ENCODE_COLORS = ["black", "red", "blue", "yellow", "white"]
+    ENCODE_COLORS = ["red", "black", "blue", "green", "white"]
+    CMAP = ListedColormap(ENCODE_COLORS)
 
     # Policy
     # input feature: [B, (2*fov_w+1)*(2*fov_h+1)]
@@ -63,10 +65,10 @@ class Config:
 
     # GRPO policy training
     # Train / Eval / Test
-    lr = 10.0
-    epoches: int = 10
-    episode_group_size: int = 50
-    episode_steps: int = 10
+    lr = 100.0
+    epoches: int = 2
+    episode_group_size: int = 100
+    episode_steps: int = 15
     # episodes_per_iteration: int = 2
 
     # EPSILON

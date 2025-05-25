@@ -44,19 +44,19 @@ class RLDataRecord(nn.Module):
         batch_agent_next_pos = self.batch_agent_current_pos + batch_actions
         batch_agent_next_pos[:, 0] = torch.clamp(
             batch_agent_next_pos[:, 0],
-            min=self.config.world_min_y,
-            max=self.config.world_max_y - 1,
-        )
-
-        batch_agent_next_pos[:, 1] = torch.clamp(
-            batch_agent_next_pos[:, 1],
             min=self.config.world_min_x,
             max=self.config.world_max_x - 1,
         )
 
+        batch_agent_next_pos[:, 1] = torch.clamp(
+            batch_agent_next_pos[:, 1],
+            min=self.config.world_min_y,
+            max=self.config.world_max_y - 1,
+        )
+
         B, positions = batch_agent_next_pos.size()
-        y_indices = batch_agent_next_pos[:, 0]
-        x_indices = batch_agent_next_pos[:, 1]
+        x_indices = batch_agent_next_pos[:, 0].to(torch.int)
+        y_indices = batch_agent_next_pos[:, 1].to(torch.int)
         blocked_pos_mask = (
             self.fov[torch.arange(B), y_indices, x_indices] == self.config.ENCODE_BLOCK
         )
@@ -80,19 +80,19 @@ class RLDataRecord(nn.Module):
         self.batch_agent_current_pos += batch_actions
         self.batch_agent_current_pos[:, 0] = torch.clamp(
             self.batch_agent_current_pos[:, 0],
-            min=self.config.world_min_y,
-            max=self.config.world_max_y - 1,
-        )
-
-        self.batch_agent_current_pos[:, 1] = torch.clamp(
-            self.batch_agent_current_pos[:, 1],
             min=self.config.world_min_x,
             max=self.config.world_max_x - 1,
         )
 
+        self.batch_agent_current_pos[:, 1] = torch.clamp(
+            self.batch_agent_current_pos[:, 1],
+            min=self.config.world_min_y,
+            max=self.config.world_max_y - 1,
+        )
+
         # Update the fov
-        y_indices = self.batch_agent_current_pos[:, 0]
-        x_indices = self.batch_agent_current_pos[:, 1]
+        x_indices = self.batch_agent_current_pos[:, 0].to(torch.int)
+        y_indices = self.batch_agent_current_pos[:, 1].to(torch.int)
         self.fov = self.fov.clone()
         self.fov[torch.arange(B), y_indices, x_indices] = (
             self.config.ENCODE_START_STEP_IDX + step
@@ -148,8 +148,8 @@ class RLDataRecord(nn.Module):
             )
 
             cur_pos = self.batch_agent_current_pos[idx]
-            x0 = int(cur_pos[1])
-            y0 = int(cur_pos[0])
+            x0 = int(cur_pos[0])
+            y0 = int(cur_pos[1])
             ax.annotate(
                 f"final:p{batch_logit_prob_history[idx][-1].item()*100.:.1f}%",
                 xy=(x0, y0),

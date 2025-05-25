@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import matplotlib
 import matplotlib.cm as cm
+import math
 import random
 import torch
 import torch.nn.functional as F
@@ -34,18 +35,22 @@ class Episode:
         start_state = State.create_from(
             config=config,
             id=id,
+            # x=0,
+            # y=0,
             x=(config.world_min_x + config.world_max_x) // 2,
             y=(config.world_min_y + config.world_max_y) // 2,
         )
         target_state = State.create_from(
             config=config,
             id=id if id else "target_state",
-            x=0.0,
-            y=0.0,
-            # x=config.world_min_x,
-            # y=config.world_max_y - 1.0,
-            # x=random.uniform(config.world_min_x, config.world_max_x - 1.0),
-            # y=random.uniform(config.world_min_y, config.world_max_y - 1.0),
+            # x=0.0,
+            # y=0.0,
+            x=float(config.world_min_x),
+            y=config.world_max_y - 1.0,
+            # x=math.floor(random.uniform(config.world_min_x, config.world_max_x - 1.0))
+            # * 1.0,
+            # y=math.floor(random.uniform(config.world_min_y, config.world_max_y - 1.0))
+            # * 1.0,
         )
         agent = Agent.create_from(
             id=id, start_state=start_state, target_state=target_state
@@ -197,7 +202,7 @@ class Episode:
     def viz_fov(self, ax: matplotlib.axes._axes.Axes):
         assert ax is not None
         fov = self.fov(center_pos=self.agent.start_state.position())
-        ax.pcolormesh(fov, cmap=cm.gray, edgecolors="gray", linewidths=0.5)
+        ax.pcolormesh(fov, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
 
     def take_action(self, action: Action):
         return self.agent.take_action(action)

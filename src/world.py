@@ -15,7 +15,7 @@ from src.config import Config
 from src.state import State
 
 # Create a custom colormap for the cells
-cmap = ListedColormap(Config.ENCODE_COLORS)
+# cmap = ListedColormap(Config.ENCODE_COLORS)
 
 
 @dataclass
@@ -133,8 +133,8 @@ class World:
         assert ax is not None
 
         fov = self.fov(center_pos=center_pos)
-        ax.pcolormesh(fov, cmap=cmap, edgecolors="gray", linewidths=0.5)
-        # ax.pcolormesh(fov, cmap=cm.gray, edgecolors="gray", linewidths=0.5)
+        ax.pcolormesh(fov, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
+        # ax.pcolormesh(fov, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
         # ax.set_xlim(self.config.world_min_x, self.config.world_max_x)
         # ax.set_ylim(self.config.world_min_y, self.config.world_max_y)
 
@@ -204,8 +204,10 @@ class World:
         # print(f"xa_sorted: {xa_sorted}")
         # print(f"ya_sorted: {ya_sorted}")
 
-        # ax.pcolormesh(viz_world_board, cmap=cm.gray, edgecolors="gray", linewidths=0.5)
-        ax.pcolormesh(viz_world_board, cmap=cmap, edgecolors="gray", linewidths=0.5)
+        # ax.pcolormesh(viz_world_board, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
+        ax.pcolormesh(
+            viz_world_board, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5
+        )
         ax.set_xlim(self.config.world_min_x, self.config.world_max_x)
         ax.set_ylim(self.config.world_min_y, self.config.world_max_y)
 

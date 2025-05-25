@@ -97,14 +97,26 @@ class GRPOTrainer:
             -1,
             self.config.episode_group_size,
         )
+        # 1
+        batch_mean_group_episode_rewards = torch.mean(batch_group_episodes_rewards)
+        if write_tensorboard:
+            self.writer.add_scalar(
+                f"{dataset.split}:batch_mean_group_episode_rewards",
+                batch_mean_group_episode_rewards,
+                step,
+            )
 
         # B x 1
         batch_group_r_std, batch_group_r_mean = torch.std_mean(
             batch_group_episodes_rewards, dim=1, keepdim=True
         )
         if write_tensorboard:
-            self.writer.add_histogram("batch_group_r_std", batch_group_r_std, step)
-            self.writer.add_histogram("batch_group_r_mean", batch_group_r_mean, step)
+            self.writer.add_histogram(
+                f"{dataset.split}:batch_group_r_std", batch_group_r_std, step
+            )
+            self.writer.add_histogram(
+                f"{dataset.split}:batch_group_r_mean", batch_group_r_mean, step
+            )
         # if torch.isnan(batch_group_r_std) or batch_group_r_std == 0.0:
         #     # print(f"invalid episode, batch_group_r_std: {r_std}")
         #     return
@@ -113,9 +125,15 @@ class GRPOTrainer:
         batch_group_r_std[batch_group_r_std == 0.0] = 1.0
 
         # B x G
-        batch_group_r_advantages = (
+        batch_group_reward_advantages = (
             batch_group_episodes_rewards - batch_group_r_mean
         ) / batch_group_r_std
+        if write_tensorboard:
+            self.writer.add_histogram(
+                f"{dataset.split}:batch_group_reward_advantages",
+                batch_group_reward_advantages,
+                step,
+            )
         # print(f"batch_group_r_std: {batch_group_r_std}, r_mean: {r_mean}, r_advantages: {r_advantages}")
 
         # 3. Compute the KL-
@@ -124,7 +142,7 @@ class GRPOTrainer:
         # 4. Compute weighted rewards
         # B x G
         batch_group_advantage_weighted_rewards = (
-            batch_group_episodes_rewards * batch_group_r_advantages
+            batch_group_episodes_rewards * batch_group_reward_advantages
         )
         # print(f"batch_group_advantage_weighted_rewards: {batch_group_advantage_weighted_rewards}")
 
@@ -142,7 +160,9 @@ class GRPOTrainer:
         # print(f"episode_log_probs: {episode_log_probs}")
         if write_tensorboard:
             self.writer.add_histogram(
-                f"batch_group_episode_log_probs", batch_group_episode_log_probs, step
+                f"{dataset.split}:batch_group_episode_log_probs",
+                batch_group_episode_log_probs,
+                step,
             )
 
         # S x B x G
@@ -155,17 +175,19 @@ class GRPOTrainer:
         batch_group_episode_probs = torch.sum(batch_group_episode_probs, dim=0)
         if write_tensorboard:
             self.writer.add_histogram(
-                f"batch_group_episode_probs", batch_group_episode_probs, step
+                f"{dataset.split}:batch_group_episode_probs",
+                batch_group_episode_probs,
+                step,
             )
 
         # B x G
         batch_group_episode_weighted_rewards = (
-            batch_group_advantage_weighted_rewards * batch_group_episode_log_probs
+            batch_group_episodes_rewards * batch_group_episode_log_probs
         )  # episode_probs
         # print(f"batch_group_episode_weighted_rewards: {batch_group_episode_weighted_rewards}")
         if write_tensorboard:
             self.writer.add_histogram(
-                f"batch_group_episode_weighted_rewards",
+                f"{dataset.split}:batch_group_episode_weighted_rewards",
                 batch_group_episode_weighted_rewards,
                 step,
             )
@@ -181,7 +203,32 @@ class GRPOTrainer:
                 batch_mean_episode_weighted_rewards,
                 step,
             )
-        return batch_mean_episode_weighted_rewards
+
+        # B x G
+        batch_group_reward_weighted_advantages = -(
+            batch_group_reward_advantages * batch_group_episode_log_probs
+        )  # episode_probs
+        # print(f"batch_group_episode_weighted_rewards: {batch_group_episode_weighted_rewards}")
+        if write_tensorboard:
+            self.writer.add_histogram(
+                f"{dataset.split}:batch_group_reward_weighted_advantages",
+                batch_group_reward_weighted_advantages,
+                step,
+            )
+
+        # 1
+        batch_mean_group_reward_weighted_advantages = torch.mean(
+            batch_group_reward_weighted_advantages
+        )
+        # print(f"batch_mean_episode_weighted_rewards: {batch_mean_episode_weighted_rewards}")
+        if write_tensorboard:
+            self.writer.add_scalar(
+                f"{dataset.split}:batch_mean_group_reward_weighted_advantages",
+                batch_mean_group_reward_weighted_advantages,
+                step,
+            )
+
+        return batch_mean_group_reward_weighted_advantages
 
     def eval_policy(
         self,
@@ -217,24 +264,26 @@ class GRPOTrainer:
         assert self.policy.training
 
         # Compute metrics and gradient
-        batch_mean_episode_weighted_rewards: torch.tensor = self.compute_batch_rewards(
-            batch_rl_data_record=batch_rl_data_record,
-            batch_episode_indices=batch_episode_indices,
-            dataset=dataset,
-            step=step,
+        batch_mean_group_reward_weighted_advantages: torch.tensor = (
+            self.compute_batch_rewards(
+                batch_rl_data_record=batch_rl_data_record,
+                batch_episode_indices=batch_episode_indices,
+                dataset=dataset,
+                step=step,
+            )
         )
 
         # Optimization
         # Zero your gradients for every batch!
         self.optimizer.zero_grad()
-        batch_mean_episode_weighted_rewards.backward()
+        batch_mean_group_reward_weighted_advantages.backward()
 
         # Adjust learning weights
         self.optimizer.step()
 
-        for name, param in self.policy.brain.named_parameters():
-            if param.grad is not None:
-                self.writer.add_histogram(f"{name}.grad", param.grad, step)
+        # for name, param in self.policy.brain.named_parameters():
+        #     if param.grad is not None and param.grad.size(0) > 0:
+        #         self.writer.add_histogram(f"{name}.grad", param.grad, step)
 
     def train_policy_with_cleanup(
         self,
@@ -334,11 +383,13 @@ class GRPOTrainer:
 
     def execute_1_episode_step(
         self,
+        mode: str,
         batch_rl_data_record: RLDataRecord,
         dataset: EpisodeDataset,
         step: int,
         debug: bool = False,
     ):
+        assert mode in ["TRAIN", "EVAL"]
         assert batch_rl_data_record is not None
         assert dataset is not None
 
@@ -348,7 +399,7 @@ class GRPOTrainer:
 
         batch_logits = self.policy(batch_fov)
         batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
-            logits=batch_logits, k=self.config.top_k
+            logits=batch_logits, k=self.config.top_k if mode == "TRAIN" else 1
         )
         # print(
         #     f"batch_action_idx: {batch_action_idx}, batch_logit_prob: {batch_logit_prob}, batch_top_k_prob: {batch_top_k_prob}"
@@ -389,6 +440,7 @@ class GRPOTrainer:
                         )
 
                     current_batch_episode_idx = self.execute_1_episode_step(
+                        mode="EVAL",
                         batch_rl_data_record=batch_rl_data_record,
                         dataset=dataset,
                         step=((batch_idx + 1) % self.config.episode_steps),
@@ -460,6 +512,7 @@ class GRPOTrainer:
                     )
 
                 current_batch_episode_idx = self.execute_1_episode_step(
+                    mode="TRAIN",
                     batch_rl_data_record=batch_rl_data_record,
                     dataset=dataset,
                     step=((batch_idx + 1) % self.config.episode_steps),
