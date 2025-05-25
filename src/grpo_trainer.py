@@ -319,7 +319,9 @@ class GRPOTrainer:
                     plot_buf.seek(0)
                     image = PIL.Image.open(plot_buf)
                     image = ToTensor()(image)
-                    self.writer.add_image(f"Train Episod: {episode.id}", image, step)
+                    self.writer.add_image(
+                        f"Train Episod: {episode.episode_id}", image, step
+                    )
                     # plt.ion()
 
                 episode.reset()
@@ -374,7 +376,7 @@ class GRPOTrainer:
                     image = PIL.Image.open(plot_buf)
                     image = ToTensor()(image)
                     self.writer.add_image(
-                        f"Eval Episod: {epoch}:{episode.id}", image, step
+                        f"Eval Episod: {epoch}:{episode.episode_id}", image, step
                     )
 
                     mpl.use(backend_)  # Reset backend

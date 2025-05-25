@@ -20,7 +20,7 @@ from src.state import State
 
 @dataclass
 class World:
-    id: str
+    world_id: str
     config: Config
     x_min: int
     x_max: int
@@ -30,11 +30,11 @@ class World:
     world_board_with_fov_padding: torch.tensor
 
     @staticmethod
-    def create_from_config(id: str, config: Config) -> World:
-        assert id
+    def create_from_config(world_id: str, config: Config) -> World:
+        assert world_id
         assert config is not None
         return World(
-            id=id,
+            world_id=world_id,
             config=config,
             x_min=config.world_min_x,
             x_max=config.world_max_x,
@@ -65,7 +65,7 @@ class World:
 
     def clone(self, idx: int) -> World:
         return World(
-            id=f"{self.id}:clone:{idx}",
+            world_id=f"{self.world_id}:clone:{idx}",
             config=self.config,
             x_min=self.x_min,
             x_max=self.x_max,

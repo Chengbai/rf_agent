@@ -54,7 +54,7 @@ def inference_and_plot_policy(
     steps: int = 20,
     debug: bool = False,
 ):
-    episode = Episode.new(id="inference")
+    episode = Episode.new(episode_id="inference")
     # print(f"start state: {episode.agent.start_state}")
     # print(f"target state: {episode.agent.target_state}")
     episode.inference_steps_by_policy(steps=steps, policy=policy, debug=debug)

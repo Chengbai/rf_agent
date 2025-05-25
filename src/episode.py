@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import matplotlib
-import matplotlib.cm as cm
-import math
 import random
-import torch
-import torch.nn.functional as F
 
 from dataclasses import dataclass
+
+import torch
+
 
 from src.action import Action
 from src.agent import Agent
@@ -21,20 +20,22 @@ import src.utils as utils
 
 @dataclass
 class Episode:
-    id: str
+    """The Episode object in the RL."""
+
+    episode_id: str
     config: Config
     world: World
     agent: Agent
 
     @staticmethod
-    def new(id: str) -> Episode:
+    def new(episode_id: str) -> Episode:
         config = Config()
-        world = World.create_from_config(id=id, config=config)
+        world = World.create_from_config(world_id=episode_id, config=config)
 
-        id = id if id else "start_state"
+        episode_id = episode_id if episode_id else "start_state"
         start_state = State.create_from(
             config=config,
-            id=id,
+            state_id=episode_id,
             # x=0,
             # y=0,
             x=(config.world_min_x + config.world_max_x) // 2,
@@ -42,7 +43,7 @@ class Episode:
         )
         target_state = State.create_from(
             config=config,
-            id=id if id else "target_state",
+            state_id=episode_id if episode_id else "target_state",
             # x=0.0,
             # y=0.0,
             x=float(config.world_min_x),
@@ -53,13 +54,13 @@ class Episode:
             # * 1.0,
         )
         agent = Agent.create_from(
-            id=id, start_state=start_state, target_state=target_state
+            agent_id=episode_id, start_state=start_state, target_state=target_state
         )
-        return Episode(id=id, config=config, world=world, agent=agent)
+        return Episode(episode_id=episode_id, config=config, world=world, agent=agent)
 
     @staticmethod
     def create_from_state(
-        start_state: State, target_state: State, id: str = None
+        start_state: State, target_state: State, episode_id: str = None
     ) -> Episode:
         assert start_state is not None
         assert target_state is not None
@@ -67,12 +68,16 @@ class Episode:
         assert start_state.config == target_state.config
 
         world = World.create_from_config(
-            id=id if id else "world", config=start_state.config
+            id=episode_id if episode_id else "world", config=start_state.config
         )
         agent = Agent.create_from(
-            id=id if id else "earth", start_state=start_state, target_state=target_state
+            agent_id=episode_id if episode_id else "earth",
+            start_state=start_state,
+            target_state=target_state,
         )
-        return Episode(id=id, config=start_state.config, world=world, agent=agent)
+        return Episode(
+            episode_id=episode_id, config=start_state.config, world=world, agent=agent
+        )
 
     def clone(self, repeat: int) -> list[Episode]:
         assert repeat > 0
@@ -81,7 +86,7 @@ class Episode:
         for i in range(repeat):
             clone_episodes.append(
                 Episode(
-                    id=f"{self.id}:clone:{i}",
+                    episode_id=f"{self.episode_id}:clone:{i}",
                     config=self.config,
                     world=self.world.clone(idx=i),
                     agent=self.agent.clone(idx=i),
@@ -197,7 +202,7 @@ class Episode:
             color=color,
         )
         rewards = self.reward(reward_model=reward_model)
-        ax.set_title(f"{self.id}: {rewards}")
+        ax.set_title(f"{self.episode_id}: {rewards}")
 
     def viz_fov(self, ax: matplotlib.axes._axes.Axes):
         assert ax is not None

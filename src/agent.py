@@ -11,7 +11,7 @@ from src.state import State
 
 @dataclass
 class Agent:
-    id: str
+    agent_id: str
     start_state: State
     target_state: State
     current_state: State
@@ -19,12 +19,12 @@ class Agent:
     action_history: list[Action] | None
 
     @staticmethod
-    def create_from(id: str, start_state: State, target_state: State) -> Agent:
-        assert id
+    def create_from(agent_id: str, start_state: State, target_state: State) -> Agent:
+        assert agent_id
         assert start_state is not None
         assert target_state is not None
         return Agent(
-            id=id,
+            agent_id=agent_id,
             start_state=copy.deepcopy(start_state),
             target_state=copy.deepcopy(target_state),
             current_state=copy.deepcopy(start_state),
@@ -38,7 +38,7 @@ class Agent:
 
     def clone(self, idx: int) -> Agent:
         return Agent(
-            id=f"{self.id}:clone:{idx}",
+            agent_id=f"{self.agent_id}:clone:{idx}",
             start_state=(
                 self.start_state.clone(idx=idx)
                 if self.start_state is not None

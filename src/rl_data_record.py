@@ -1,21 +1,31 @@
+"""
+This module is created on 2025
+"""
+
 import matplotlib
 import matplotlib.cm as cm
 import torch
-import torch.nn as nn
 
 from src.config import Config
 from src.reward_model import RewardModel
 
 
-class RLDataRecord(nn.Module):
+class RLDataRecord:
+    """
+    - Each train/eval step, it contains a batch of the episodes; each episode is further contains
+      a configurable group of clones;
+    - Each episode will run configurable steps, at the end, each episode will have a reward
+      computed;
+    - This data record contains all of the above historical data.
+    """
+
     def __init__(self, config: Config, batch_data_items: dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         assert config is not None
         assert batch_data_items is not None
-        self.config = config
-        self.NO_MOVE_ACTION_INDEX = config.possible_actions.shape[0] // 2
 
+        self.config = config
         self.current_batch_episode_idx = batch_data_items["episode_idx"]
         self.batch_agent_start_pos = batch_data_items["agent_start_pos"]
         self.batch_agent_target_pos = batch_data_items["agent_target_pos"]
@@ -33,8 +43,11 @@ class RLDataRecord(nn.Module):
         batch_logit_prob: torch.Tensor,
         batch_top_k_prob: torch.Tensor,
         step: int,
-        debug: bool = False,
+        debug: bool,
     ):
+        """
+        Update the record with the current step context info.
+        """
         # assert 0 <= step and step < self.config.episode_steps, f"invalid step: {step}"
 
         # Get the action update
@@ -54,7 +67,7 @@ class RLDataRecord(nn.Module):
             max=self.config.world_max_y - 1,
         )
 
-        B, positions = batch_agent_next_pos.size()
+        B, _ = batch_agent_next_pos.size()
         x_indices = batch_agent_next_pos[:, 0].to(torch.int)
         y_indices = batch_agent_next_pos[:, 1].to(torch.int)
         blocked_pos_mask = (
@@ -134,6 +147,12 @@ class RLDataRecord(nn.Module):
         idx: int = 0,
         reward_model: RewardModel = None,
     ):
+        """
+        Visualize the:
+         - fov
+         - the state transition history
+         - the last state position
+        """
         assert ax is not None
         ax.pcolormesh(self.fov[idx], cmap=cm.gray, edgecolors="gray", linewidths=0.5)
         if reward_model is not None:
@@ -159,6 +178,9 @@ class RLDataRecord(nn.Module):
             )
 
     def reward(self, reward_model: RewardModel) -> torch.tensor:
+        """
+        Use the given reward model to compute the final state reward.
+        """
         assert reward_model is not None
         return reward_model.reward(
             batach_cur_pos=self.batch_agent_current_pos,

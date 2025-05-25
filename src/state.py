@@ -11,21 +11,24 @@ from src.config import Config
 @dataclass
 class State:
     config: Config
-    id: str
+    state_id: str
     x: int
     y: int
 
     @staticmethod
-    def create_from(config: Config, id: str, x: int, y: int) -> State:
+    def create_from(config: Config, state_id: str, x: int, y: int) -> State:
         assert config is not None
-        assert id
+        assert state_id
 
-        return State(config=config, id=id, x=x, y=y)
+        return State(config=config, state_id=state_id, x=x, y=y)
 
     def clone(self, idx: int) -> State:
         assert idx >= 0
         return State(
-            config=self.config, id=f"{self.id}:clone:{idx}", x=self.x, y=self.y
+            config=self.config,
+            state_id=f"{self.state_id}:clone:{idx}",
+            x=self.x,
+            y=self.y,
         )
 
     def can_take_action(self, action: Action) -> bool:

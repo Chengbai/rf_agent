@@ -40,7 +40,7 @@ class EpisodeDataset(Dataset):
         #   - [E0, E0C0, E0C1, E1, E1C0, E1C2, ...]
         for episode_idx in range(dataset_length):
             # Create the 1st episode in the group
-            episode = Episode.new(id=f"episode_{split}_{episode_idx}")
+            episode = Episode.new(episode_id=f"episode_{split}_{episode_idx}")
             self.episodes.append(episode)
 
             # Clone G-1 times
@@ -60,7 +60,7 @@ class EpisodeDataset(Dataset):
             "agent_start_pos": target_episode.agent.start_state.position(),
             "agent_target_pos": target_episode.agent.target_state.position(),
             "agent_current_pos": target_episode.agent.current_state.position(),
-            # "world_id": target_episode.world.id,
+            # "world_id": target_episode.world.world_id,
             # "position": target_episode.agent.current_state.position(),
             # "normalized_position": target_episode.agent.current_state.normalized_position(),
             "fov": target_episode.fov(target_episode.agent.current_state.position()),

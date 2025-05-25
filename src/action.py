@@ -1,15 +1,20 @@
+"""
+This module is created on 2025
+"""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 import torch
 
-from copy import deepcopy
-from dataclasses import dataclass
 
 from src.config import Config
 
 
 @dataclass
 class Action:
+    """Define the action taken in an episode step."""
+
     config: Config
     action_idx: int | None
     prob: torch.tensor | None
@@ -18,6 +23,7 @@ class Action:
     def create_from(
         config: Config, action_idx: int, prob: torch.tesnor = torch.tensor(1.0)
     ) -> Action:
+
         assert config is not None
         assert 0 <= action_idx and action_idx < len(config.possible_actions)
         assert prob is not None
