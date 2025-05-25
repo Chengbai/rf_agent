@@ -1,17 +1,17 @@
-# Porjct: Predict the trajectory in an environment with BLOCKs.
+# Project: Predict the trajectory in an environment with BLOCKs.
 ----
-- Env: N x M (rows x columns) grid with randome generated BLOCKs
-- Inputs:
+- **Env**: N x M (rows x columns) grid with random generated BLOCKs
+- **Inputs**:
   - start position: (x0, y0)
   - target position: (xt, yt)
-- Rules:
+- **Rules**:
   - ONLY allow move within the grid
   - CANNOT move to the BLOCK position
-  - At any time, possible movings are:
+  - At any time, possible moves are:
      [top-left, top, top-right,
       left, current, right,
       bottom-left, bottom, bottom-right]
-- Example Setup:
+- **Example Setup**:
 <p align="center">
     <img src="doc/example_setup1.png" alt="Description" width="200">
 </p>
@@ -25,7 +25,7 @@
 ## RF with GRPO
 ![RF GRPO Architecture](doc/RF_GRPO.drawio.svg)
 
-## Exmaple Solution
+## Example Solution
 <p align="center">
     <img src="doc/example_solution1.png" alt="Description" width="600">
 </p>
