@@ -16,7 +16,7 @@ class Config:
     world_max_y: int = 11
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
-    world_block_probability = 0.1
+    world_block_probability = 0.4
 
     # Dataset
     train_dataset_length: int = 1000
@@ -66,7 +66,7 @@ class Config:
     # GRPO policy training
     # Train / Eval / Test
     lr = 100.0
-    epoches: int = 2
+    epoches: int = 10
     episode_group_size: int = 100
     episode_steps: int = 15
     # episodes_per_iteration: int = 2

@@ -103,13 +103,24 @@ class Episode:
                 ),
             )
 
+    def _can_take_action(self, action: Action, fov: torch.Tensor):
+        if not self.agent.current_state.can_take_action(action=action):
+            return False
+
+        dx, dy = action.get_udpate()
+        next_x = self.agent.current_state.x + dx
+        next_y = self.agent.current_state.y + dy
+        return (
+            fov[next_y][next_x] != self.config.ENCODE_BLOCK
+        )  # row - Y-axis, column - X-axis
+
     def _run_steps(self, steps: int, policy: Policy, top_k: int, debug: bool = False):
         for step in range(steps):
             # logits = policy.forward(self.agent.current_state.normalized_position())
-            agent_current_pos = self.agent.current_state.position()[None, :]  # 1 x 2
+            agent_current_pos = self.agent.start_state.position()[None, :]  # 1 x 2
             agent_target_pos = self.agent.target_state.position()[None, :]  # 1 x 2
 
-            fov = self.fov(center_pos=self.agent.current_state.position())
+            fov = self.fov(center_pos=self.agent.start_state.position())
             batch_fov = fov.reshape(shape=(-1,))[None, :]
             batch_features = batch_fov
             batch_features = batch_features.to(next(policy.parameters()).device)
@@ -120,16 +131,16 @@ class Episode:
             )
             # action_idx = torch.argmax(logits)
 
-            self.agent.take_action(
-                action=Action.create_from(
-                    config=self.config,
-                    action_idx=batch_action_idx[0][0],
-                    prob=batch_logit_prob[0],
-                )
+            action = Action.create_from(
+                config=self.config,
+                action_idx=batch_action_idx[0][0],
+                prob=batch_logit_prob[0],
             )
+            if self._can_take_action(action=action, fov=fov):
+                self.agent.take_action(action=action)
             if debug:
                 print(
-                    f"step: {step}, logits: {batch_logits}, logit_prob: {batch_logit_prob}, top_k_prob: {batch_top_k_prob}, action_idx: {batch_action_idx}, state: {self.agent.current_state.position()}, action_history: {[a.action_idx for a in self.agent.action_history]}"
+                    f"step: {step}, logits: {batch_logits}, logit_prob: {batch_logit_prob}, top_k_prob: {batch_top_k_prob}, action_idx: {batch_action_idx}, action_update:{action.get_udpate()}, state: {self.agent.current_state.position()}, action_history: {[a.action_idx for a in self.agent.action_history]}"
                 )
 
     def run_steps_by_policy(

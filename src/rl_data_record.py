@@ -71,7 +71,8 @@ class RLDataRecord:
         x_indices = batch_agent_next_pos[:, 0].to(torch.int)
         y_indices = batch_agent_next_pos[:, 1].to(torch.int)
         blocked_pos_mask = (
-            self.fov[torch.arange(B), y_indices, x_indices] == self.config.ENCODE_BLOCK
+            self.fov[torch.arange(B), y_indices, x_indices]
+            == self.config.ENCODE_BLOCK  # Row - Y-axis, Col - X-axis
         )
         reach_target_pos_mask = (
             self.fov[torch.arange(B), y_indices, x_indices]
@@ -108,7 +109,7 @@ class RLDataRecord:
         y_indices = self.batch_agent_current_pos[:, 1].to(torch.int)
         self.fov = self.fov.clone()
         self.fov[torch.arange(B), y_indices, x_indices] = (
-            self.config.ENCODE_START_STEP_IDX + step
+            self.config.ENCODE_START_STEP_IDX + step  # Row - Y-axis, Col - X-axis
         )
 
         # Save the history -- batch_action_idx

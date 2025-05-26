@@ -52,20 +52,28 @@ def inference_and_plot_policy(
     config: Config,
     reward_model: RewardModel,
     steps: int = 20,
+    episode: Episode = None,
     debug: bool = False,
 ):
-    episode = Episode.new(episode_id="inference")
+    _, axes = plt.subplots(
+        nrows=1,
+        ncols=3,
+        figsize=config.triple_figure_size,
+    )
+    if episode is None:
+        episode = Episode.new(episode_id="inference")
+    episode.viz_fov(ax=axes[0])
+    axes[0].set_title(f"{episode.episode_id}: Initial state")
+
     # print(f"start state: {episode.agent.start_state}")
     # print(f"target state: {episode.agent.target_state}")
     episode.inference_steps_by_policy(steps=steps, policy=policy, debug=debug)
     # print(f"end state: {episode.agent.current_state}")
 
-    fig = plt.figure(figsize=config.double_figure_size)
-    ax = fig.add_subplot(1, 2, 1)
-    episode.viz(ax=ax, reward_model=reward_model, color=get_color(0))
+    episode.viz(ax=axes[1], reward_model=reward_model, color=get_color(0))
 
-    ax = fig.add_subplot(1, 2, 2)
-    episode.viz_fov(ax=ax)
+    episode.viz_fov(ax=axes[2])
+    axes[2].set_title(f"{episode.episode_id}: Final state")
     plt.show()
 
     return episode
