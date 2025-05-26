@@ -33,7 +33,8 @@ def top_k_sampling(
     # logits_mean, logits_std = torch.std_mean(logits)
     # logits = (logits - logits_mean) / logits_std
     # print(f"logits: {logits}")
-    norm_logits = normalize_min_max(logits)
+    # norm_logits = normalize_min_max(logits)
+    norm_logits = F.normalize(logits, p=2, dim=-1)
     # print(f"norm_logits: {norm_logits}")
     logits_probs = F.softmax(norm_logits, dim=-1)
     # print(f"logits_probs: {logits_probs}")
