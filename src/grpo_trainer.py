@@ -15,7 +15,7 @@ from src.config import Config
 from src.episode import Episode
 from src.episode_batch_reat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeDataset
-from src.policy import Policy
+from src.policy.policy_base import PolicyBaseModel
 from src.rl_data_record import RLDataRecord
 from src.utils import get_color, to_device_collate, top_k_sampling
 from src.reward_model import RewardModel
@@ -25,7 +25,7 @@ class GRPOTrainer:
     def __init__(
         self,
         config: Config,
-        policy: Policy,
+        policy: PolicyBaseModel,
         reward_model: RewardModel,
     ):
         assert config is not None
@@ -396,10 +396,7 @@ class GRPOTrainer:
         assert dataset is not None
 
         # Flaten the fov
-        B, FOV_H, FOV_W = batch_rl_data_record.fov.shape
-        batch_fov = batch_rl_data_record.fov.reshape(shape=(B, -1))
-
-        batch_logits = self.policy(batch_fov)
+        batch_logits = self.policy(batch_rl_data_record=batch_rl_data_record)
         batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
             logits=batch_logits, k=self.config.top_k if mode == "TRAIN" else 1
         )

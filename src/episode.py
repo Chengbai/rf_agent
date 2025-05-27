@@ -11,7 +11,7 @@ import torch
 from src.action import Action
 from src.agent import Agent
 from src.config import Config
-from src.policy import Policy
+from src.policy.policy_base import PolicyBaseModel
 from src.reward_model import RewardModel
 from src.state import State
 from src.world import World
@@ -114,7 +114,9 @@ class Episode:
             fov[next_y][next_x] != self.config.ENCODE_BLOCK
         )  # row - Y-axis, column - X-axis
 
-    def _run_steps(self, steps: int, policy: Policy, top_k: int, debug: bool = False):
+    def _run_steps(
+        self, steps: int, policy: PolicyBaseModel, top_k: int, debug: bool = False
+    ):
         for step in range(steps):
             # logits = policy.forward(self.agent.current_state.normalized_position())
             agent_current_pos = self.agent.start_state.position()[None, :]  # 1 x 2
@@ -144,18 +146,18 @@ class Episode:
                 )
 
     def run_steps_by_policy(
-        self, steps: int, policy: Policy, top_k: int, debug: bool = False
+        self, steps: int, policy: PolicyBaseModel, top_k: int, debug: bool = False
     ):
         with torch.no_grad():
             policy.eval()
             self._run_steps(steps=steps, policy=policy, top_k=top_k, debug=debug)
 
     def inference_steps_by_policy(
-        self, steps: int, policy: Policy, debug: bool = False
+        self, steps: int, policy: PolicyBaseModel, debug: bool = False
     ):
         self.run_steps_by_policy(steps=steps, policy=policy, top_k=1, debug=debug)
 
-    def train(self, steps: int, policy: Policy, debug: bool = False):
+    def train(self, steps: int, policy: PolicyBaseModel, debug: bool = False):
         policy.train()
         self._run_steps(
             steps=steps, policy=policy, top_k=self.config.top_k, debug=debug

@@ -25,6 +25,16 @@
 ## RF with GRPO
 ![RF GRPO Architecture](doc/RF_GRPO.drawio.svg)
 
+## Policy Model
+----
+### Linear Models
+2 models here: 
+ - linear model
+ - linear model with late position fusion
+<p align="center">
+    <img src="doc/RF_GRPO_Grid_Move_Prediction_Linear_Model.drawio.svg" alt="RF GRPO Grid Move Prediction Linear Models" width="500">
+</p>
+
 ## Example Solution
 <p align="center">
     <img src="doc/example_solution1.png" alt="Description" width="600">

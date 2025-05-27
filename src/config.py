@@ -55,7 +55,7 @@ class Config:
 
     intermedia_features1: int = 500
     intermedia_features2: int = 300
-    intermedia_features3: int = 100
+    intermedia_features3: int = 50
 
     # output feature: [B, 1] -> action_idx
     output_features: int = 1
@@ -66,9 +66,9 @@ class Config:
     # GRPO policy training
     # Train / Eval / Test
     lr = 100.0
-    epoches: int = 10
-    episode_group_size: int = 100
-    episode_steps: int = 15
+    epoches: int = 2
+    episode_group_size: int = 2
+    episode_steps: int = 3
     # episodes_per_iteration: int = 2
 
     # EPSILON

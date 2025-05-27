@@ -11,7 +11,6 @@ from src.action import Action
 from src.agent import Agent
 from src.config import Config
 from src.episode import Episode
-from src.policy import Policy
 from src.state import State
 from src.world import World
 import src.utils as utils
