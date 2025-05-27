@@ -13,7 +13,7 @@ from torchvision.transforms import ToTensor
 
 from src.config import Config
 from src.episode import Episode
-from src.episode_batch_reat_sampler import EpisodeBatchRepeatSampler
+from src.episode_batch_repeat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeDataset
 from src.policy.policy_base import PolicyBaseModel
 from src.rl_data_record import RLDataRecord

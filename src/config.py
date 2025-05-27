@@ -19,7 +19,7 @@ class Config:
     world_block_probability = 0.4
 
     # Dataset
-    train_dataset_length: int = 1000
+    train_dataset_length: int = 10000
     train_batch_size: int = 100
 
     test_dataset_length: int = 10
@@ -67,8 +67,8 @@ class Config:
     # Train / Eval / Test
     lr = 100.0
     epoches: int = 2
-    episode_group_size: int = 2
-    episode_steps: int = 3
+    episode_group_size: int = 100
+    episode_steps: int = 15
     # episodes_per_iteration: int = 2
 
     # EPSILON

@@ -51,6 +51,7 @@ class EpisodeDataset(Dataset):
         return len(self.episodes)
 
     def __getitem__(self, index):
+        # print(f"episode_idx: {index}")
         target_episode = self.episodes[index % len(self.episodes)]
         assert target_episode is not None
 

@@ -25,8 +25,8 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
             ),
             nn.ReLU(),
         )
-        self.mlp = (
-            nn.Linear(config.intermedia_features3 + 4, len(config.possible_actions)),
+        self.mlp = nn.Linear(
+            config.intermedia_features3 + 4, len(config.possible_actions)
         )
 
         self._init_parameters()
@@ -35,6 +35,7 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
         for layer in self.brain:
             if isinstance(layer, nn.Linear):
                 layer.weight = nn.init.kaiming_uniform(layer.weight)
+        self.mlp.weight = nn.init.kaiming_uniform(self.mlp.weight)
 
     def _prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
         """Prepare the train/eval feature data for the model"""
@@ -42,26 +43,30 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
         assert batch_rl_data_record is not None
         B, _, _ = batch_rl_data_record.fov.shape
         batch_fov = batch_rl_data_record.fov.reshape(shape=(B, -1))
-        return batch_fov
+
+        batch_cur_position = batch_rl_data_record.batch_agent_current_pos
+        batch_target_position = batch_rl_data_record.batch_agent_target_pos
+
+        return batch_fov, batch_cur_position, batch_target_position
 
     def forward(self, batch_rl_data_record: RLDataRecord):
-        batch_features = self._prepare_feature(
+        batch_fov, batch_cur_position, batch_target_position = self._prepare_feature(
             batch_rl_data_record=batch_rl_data_record
         )
-        return self.brain(batch_features)
-        assert batch_x is not None
+        assert batch_fov is not None
         assert batch_cur_position is not None
         assert batch_target_position is not None
         assert (
-            batch_x.size(0)
+            batch_fov.size(0)
             == batch_cur_position.size(0)
             == batch_target_position.size(0)
         )
 
-        batch_feature = self.brain(batch_x)
+        batch_fov_feature = self.brain(batch_fov)
 
-        batch_feature = torch.concat(
-            [batch_feature, batch_cur_position, batch_target_position]
+        # Late fusion at the last MLP layer
+        batch_fusion_feature = torch.concat(
+            [batch_fov_feature, batch_cur_position, batch_target_position], dim=-1
         )
-        logits = self.mlp(batch_feature)
+        logits = self.mlp(batch_fusion_feature)
         return logits

@@ -47,14 +47,15 @@ class EpisodeBatchRepeatSampler(Sampler):
         # Note: for `train`, the `self.dataset` is at size: `config.train_dataset_length x G`!
         # Same to the `test` and `eval`.
         for i in range(0, len(dataset_indices), self.batch_size * self.group_size):
-            batch_data_items_indices = np.array(
-                dataset_indices[i : i + self.batch_size]
-            )
-            group_batch_data_items_indices = []
-            for dii in batch_data_items_indices:
-                group_batch_data_items_indices.extend(
-                    range(dii * self.group_size, (dii + 1) * self.group_size, 1)
-                )
+            group_batch_data_items_indices = dataset_indices[
+                i : i + self.batch_size * self.group_size
+            ]
+
+            # group_batch_data_items_indices = []
+            # for dii in batch_data_items_indices:
+            #     group_batch_data_items_indices.extend(
+            #         range(dii * self.group_size, (dii + 1) * self.group_size, 1)
+            #     )
 
             repeat_batch_indices = group_batch_data_items_indices * self.repeats
             indices.extend(repeat_batch_indices)
