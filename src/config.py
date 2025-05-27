@@ -43,7 +43,7 @@ class Config:
     ENCODE_TARGET_POS: int = 0
     ENCODE_BLOCK: int = 100
     ENCODE_START_POS: int = 128
-    ENCODE_START_STEP_IDX = 200
+    ENCODE_START_STEP_IDX = 150
     ENCODE_EMPTY: int = 255
 
     ENCODE_COLORS = ["red", "black", "blue", "green", "white"]
@@ -66,7 +66,7 @@ class Config:
     # GRPO policy training
     # Train / Eval / Test
     lr = 100.0
-    epoches: int = 2
+    epoches: int = 10
     episode_group_size: int = 100
     episode_steps: int = 15
     # episodes_per_iteration: int = 2

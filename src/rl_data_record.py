@@ -155,7 +155,9 @@ class RLDataRecord:
          - the last state position
         """
         assert ax is not None
-        ax.pcolormesh(self.fov[idx], cmap=cm.gray, edgecolors="gray", linewidths=0.5)
+        ax.pcolormesh(
+            self.fov[idx].cpu(), cmap=cm.gray, edgecolors="gray", linewidths=0.5
+        )
         if reward_model is not None:
             rewards = self.reward(reward_model=reward_model)
 
@@ -171,7 +173,7 @@ class RLDataRecord:
             x0 = int(cur_pos[0])
             y0 = int(cur_pos[1])
             ax.annotate(
-                f"final:p{batch_logit_prob_history[idx][-1].item()*100.:.1f}%",
+                f"final:s{len(batch_logit_prob_history[idx])}:p{batch_logit_prob_history[idx][-1].item()*100.:.1f}%",
                 xy=(x0, y0),
                 xycoords="data",
                 color="red",

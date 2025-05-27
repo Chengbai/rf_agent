@@ -93,6 +93,7 @@ def inference_and_plot_policy_v2(
     dataloader: DataLoader,
     policy: PolicyBaseModel,
     reward_model: RewardModel,
+    top_k: int = 2,
 ):
     assert config is not None
     assert dataset is not None
@@ -115,7 +116,7 @@ def inference_and_plot_policy_v2(
 
             batch_logits = policy(batch_rl_data_record=batch_rl_data_record)
             batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
-                logits=batch_logits, k=1
+                logits=batch_logits, k=top_k
             )
             # print(
             #     f"batch_action_idx: {batch_action_idx}, batch_logit_prob: {batch_logit_prob}, batch_top_k_prob: {batch_top_k_prob}"

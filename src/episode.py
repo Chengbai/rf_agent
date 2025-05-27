@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import matplotlib
 import random
 
@@ -46,12 +47,12 @@ class Episode:
             state_id=episode_id if episode_id else "target_state",
             # x=0.0,
             # y=0.0,
-            x=float(config.world_min_x),
-            y=config.world_max_y - 1.0,
-            # x=math.floor(random.uniform(config.world_min_x, config.world_max_x - 1.0))
-            # * 1.0,
-            # y=math.floor(random.uniform(config.world_min_y, config.world_max_y - 1.0))
-            # * 1.0,
+            # x=float(config.world_min_x),
+            # y=config.world_max_y - 1.0,
+            x=math.floor(random.uniform(config.world_min_x, config.world_max_x - 1.0))
+            * 1.0,
+            y=math.floor(random.uniform(config.world_min_y, config.world_max_y - 1.0))
+            * 1.0,
         )
         agent = Agent.create_from(
             agent_id=episode_id, start_state=start_state, target_state=target_state
