@@ -34,8 +34,8 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
     def _init_parameters(self):
         for layer in self.brain:
             if isinstance(layer, nn.Linear):
-                layer.weight = nn.init.kaiming_uniform(layer.weight)
-        self.mlp.weight = nn.init.kaiming_uniform(self.mlp.weight)
+                layer.weight = nn.init.kaiming_uniform_(layer.weight)
+        self.mlp.weight = nn.init.kaiming_uniform_(self.mlp.weight)
 
     def _prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
         """Prepare the train/eval feature data for the model"""
@@ -69,4 +69,4 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
             [batch_fov_feature, batch_cur_position, batch_target_position], dim=-1
         )
         logits = self.mlp(batch_fusion_feature)
-        return logits
+        return logits  # B x 9 (possible_actions)

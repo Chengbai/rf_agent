@@ -281,9 +281,9 @@ class GRPOTrainer:
         # Adjust learning weights
         self.optimizer.step()
 
-        # for name, param in self.policy.brain.named_parameters():
-        #     if param.grad is not None and param.grad.size(0) > 0:
-        #         self.writer.add_histogram(f"{name}.grad", param.grad, step)
+        for name, param in self.policy.named_parameters():
+            if param.grad is not None and param.grad.size(0) > 0:
+                self.writer.add_histogram(f"{name}.grad", param.grad, step)
 
     def train_policy_with_cleanup(
         self,

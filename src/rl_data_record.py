@@ -189,3 +189,8 @@ class RLDataRecord:
             batach_cur_pos=self.batch_agent_current_pos,
             batch_target_pos=self.batch_agent_target_pos,
         )
+
+    def fov2d(self) -> torch.Tensor:
+        fov_2d = torch.unsqueeze(self.fov, dim=-1)  # B x H x W x C(1)
+        fov_2d = fov_2d.permute(0, 3, 1, 2)  # B x C(1) x H x W
+        return fov_2d

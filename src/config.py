@@ -20,7 +20,7 @@ class Config:
 
     # Dataset
     train_dataset_length: int = 10000
-    train_batch_size: int = 100
+    train_batch_size: int = 50
 
     test_dataset_length: int = 10
     test_batch_size: int = 2
@@ -67,7 +67,7 @@ class Config:
     # Train / Eval / Test
     lr = 100.0
     epoches: int = 10
-    episode_group_size: int = 100
+    episode_group_size: int = 50
     episode_steps: int = 15
     # episodes_per_iteration: int = 2
 
@@ -82,3 +82,16 @@ class Config:
     # Rewards
     max_reward = torch.tensor(500.0)
     blocked_reward = torch.tensor(-500.0)
+
+    # Transformer
+    embedding: int = 50
+    img_in_channels: int = 1  # fov is 1 channel image
+    img_kernel_size: int = 1  # in pixel
+    img_tokens: int = (world_height // img_kernel_size) * (
+        world_width // img_kernel_size
+    )
+    multi_heads: int = 10
+    qkv_projection = multi_heads * 2
+    transformer_block_layer1: int = 2 * qkv_projection
+    transformer_blocks = 2
+    trunk_features: int = 50
