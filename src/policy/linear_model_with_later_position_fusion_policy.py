@@ -37,7 +37,7 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
                 layer.weight = nn.init.kaiming_uniform_(layer.weight)
         self.mlp.weight = nn.init.kaiming_uniform_(self.mlp.weight)
 
-    def _prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
+    def prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
         """Prepare the train/eval feature data for the model"""
 
         assert batch_rl_data_record is not None
@@ -49,8 +49,23 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
 
         return batch_fov, batch_cur_position, batch_target_position
 
-    def forward(self, batch_rl_data_record: RLDataRecord):
-        batch_fov, batch_cur_position, batch_target_position = self._prepare_feature(
+    def forward(
+        self,
+        batch_fov: torch.Tensor,
+        batch_cur_position: torch.Tensor,
+        batch_target_position: torch.Tensor,
+    ):
+        batch_fov_feature = self.brain(batch_fov)
+
+        # Late fusion at the last MLP layer
+        batch_fusion_feature = torch.concat(
+            [batch_fov_feature, batch_cur_position, batch_target_position], dim=-1
+        )
+        logits = self.mlp(batch_fusion_feature)
+        return logits  # B x 9 (possible_actions)
+
+    def execute_1_step(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
+        batch_fov, batch_cur_position, batch_target_position = self.prepare_feature(
             batch_rl_data_record=batch_rl_data_record
         )
         assert batch_fov is not None
@@ -62,11 +77,8 @@ class LinearModelWithLaterPositionFusionPolicy(PolicyBaseModel):
             == batch_target_position.size(0)
         )
 
-        batch_fov_feature = self.brain(batch_fov)
-
-        # Late fusion at the last MLP layer
-        batch_fusion_feature = torch.concat(
-            [batch_fov_feature, batch_cur_position, batch_target_position], dim=-1
+        return self.forward(
+            batch_fov=batch_fov,
+            batch_cur_position=batch_cur_position,
+            batch_target_position=batch_target_position,
         )
-        logits = self.mlp(batch_fusion_feature)
-        return logits  # B x 9 (possible_actions)

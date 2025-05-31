@@ -20,21 +20,21 @@ class TransformerBlockPolicy(nn.Module):
         self.config = config
 
         self.q = nn.Parameter(
-            torch.zeros(size=(config.embedding, config.qkv_projection)).uniform_(0, 1.0)
-        )  # Emb x qkv_projection
+            torch.zeros(size=(config.embedding, config.qk_projection)).uniform_(0, 1.0)
+        )  # Emb x qk_projection
         self.k = nn.Parameter(
-            torch.zeros(size=(config.embedding, config.qkv_projection)).uniform_(0, 1.0)
-        )  # Emb x qkv_projection
+            torch.zeros(size=(config.embedding, config.qk_projection)).uniform_(0, 1.0)
+        )  # Emb x qk_projection
         self.v = nn.Parameter(
-            torch.zeros(size=(config.embedding, config.qkv_projection)).uniform_(0, 1.0)
-        )  # Emb x qkv_projection
+            torch.zeros(size=(config.embedding, config.embedding)).uniform_(0, 1.0)
+        )  # Emb x Emb
 
         self.mlp = nn.Sequential(
-            nn.LayerNorm(config.qkv_projection),
-            nn.Linear(config.qkv_projection, config.transformer_block_layer1),
+            nn.LayerNorm(config.embedding),
+            nn.Linear(config.embedding, config.transformer_block_layer1),
             nn.ReLU(inplace=True),
-            nn.LayerNorm(config.transformer_block_layer1),
             nn.Linear(config.transformer_block_layer1, config.embedding),
+            nn.LayerNorm(config.embedding),
         )
         self._init_parameters()
 
@@ -45,17 +45,18 @@ class TransformerBlockPolicy(nn.Module):
 
     def forward(self, fov_emb: torch.Tensor):
         assert fov_emb is not None  # B, T, Emb
+        fov_emb_copy = fov_emb.clone()  # B x T x Emb
 
-        q = fov_emb @ self.q  # B x T x qkv_projection
-        k = fov_emb @ self.k  # B x T x qkv_projection
-        v = fov_emb @ self.v  # B x T x qkv_projection
+        q = fov_emb @ self.q  # B x T x qk_projection
+        k = fov_emb @ self.k  # B x T x qk_projection
+        v = fov_emb @ self.v  # B x T x Emb
 
-        B, T, qkv_projection = q.size()
-        qh = q.reshape((B, T, self.config.multi_heads, -1))  # B x T x H x Emb_H
-        qh = qh.permute(0, 2, 1, 3)  # B x H x T x Emb_H
+        B, T, qk_projection = q.size()
+        qh = q.reshape((B, T, self.config.multi_heads, -1))  # B x T x H x Emb_QKH
+        qh = qh.permute(0, 2, 1, 3)  # B x H x T x Emb_QKH
 
-        kh = k.reshape((B, T, self.config.multi_heads, -1))  # B x T x H x Emb_H
-        kh = kh.permute(0, 2, 3, 1)  # B x H x Emb_H x T
+        kh = k.reshape((B, T, self.config.multi_heads, -1))  # B x T x H x Emb_QKH
+        kh = kh.permute(0, 2, 3, 1)  # B x H x Emb_QKH x T
         att = (
             qh
             @ kh
@@ -68,9 +69,18 @@ class TransformerBlockPolicy(nn.Module):
 
         vatt = att @ vh  # B x H x T x Emb_H
         vatt = vatt.permute((0, 2, 1, 3))  # B x T x H x Emb_H
-        vatt = vatt.reshape((B, T, -1))  # B x T x qkv_projection
+        vatt = vatt.reshape((B, T, -1))  # B x T x Emb
 
-        feat = self.mlp(vatt)  # B x T x Emb
+        # residual
+        feat = vatt + fov_emb_copy  # B x T x Emb
+        feat_copy = feat.clone()  # B x T x Emb
+
+        # Norm + MLP
+        feat = self.mlp(feat)  # B x T x Emb
+
+        # residual
+        feat = feat_copy + feat
+
         return feat  # B x T x Emb
 
 
@@ -120,7 +130,6 @@ class TransformerPolicy(nn.Module):
                             config.trunk_features,
                         ),
                     ),
-                    ("relu", nn.ReLU()),
                 ]
             )
         )
@@ -135,7 +144,7 @@ class TransformerPolicy(nn.Module):
             if isinstance(layer, nn.Linear):
                 layer.weight = nn.init.kaiming_uniform_(layer.weight)
 
-    def _prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
+    def prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
         """Prepare the train/eval feature data for the model"""
 
         assert batch_rl_data_record is not None
@@ -145,8 +154,8 @@ class TransformerPolicy(nn.Module):
 
         return batch_fov, batch_cur_position, batch_target_position
 
-    def forward(self, batch_rl_data_record: RLDataRecord):
-        batch_fov, batch_cur_position, batch_target_position = self._prepare_feature(
+    def execute_1_step(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
+        batch_fov, batch_cur_position, batch_target_position = self.prepare_feature(
             batch_rl_data_record=batch_rl_data_record
         )
         assert batch_fov is not None
@@ -157,8 +166,18 @@ class TransformerPolicy(nn.Module):
             == batch_cur_position.size(0)
             == batch_target_position.size(0)
         )
+        return self.forward(
+            batch_fov=batch_fov,
+            batch_cur_position=batch_cur_position,
+            batch_target_position=batch_target_position,
+        )
 
-        assert batch_fov is not None
+    def forward(
+        self,
+        batch_fov: torch.Tensor,
+        batch_cur_position: torch.Tensor,
+        batch_target_position: torch.Tensor,
+    ) -> torch.Tensor:
         B, C, H, W = batch_fov.size()
 
         fov_emb = self.img_to_emb(batch_fov)  # B x T x H x W

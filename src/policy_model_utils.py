@@ -114,7 +114,9 @@ def inference_and_plot_policy_v2(
 
             cur_batch_episode_idx = batch_data_items["episode_idx"]
 
-            batch_logits = policy(batch_rl_data_record=batch_rl_data_record)
+            batch_logits = policy.execute_1_step(
+                batch_rl_data_record=batch_rl_data_record
+            )
             batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
                 logits=batch_logits, k=top_k
             )

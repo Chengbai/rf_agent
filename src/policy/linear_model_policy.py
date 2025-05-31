@@ -24,7 +24,12 @@ class LinearModelPolicy(PolicyBaseModel):
         )
         self._init_parameters()
 
-    def _prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
+    def _init_parameters(self):
+        for layer in self.brain:
+            if isinstance(layer, nn.Linear):
+                layer.weight = nn.init.kaiming_uniform(layer.weight)
+
+    def prepare_feature(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
         """Prepare the train/eval feature data for the model"""
 
         assert batch_rl_data_record is not None
@@ -32,13 +37,13 @@ class LinearModelPolicy(PolicyBaseModel):
         batch_fov = batch_rl_data_record.fov.reshape(shape=(B, -1))
         return batch_fov
 
-    def _init_parameters(self):
-        for layer in self.brain:
-            if isinstance(layer, nn.Linear):
-                layer.weight = nn.init.kaiming_uniform(layer.weight)
+    def forward(self, batch_fov: torch.Tensor):
+        assert batch_fov is not None
+        return self.brain(batch_fov)
 
-    def forward(self, batch_rl_data_record: RLDataRecord):
-        batch_features = self._prepare_feature(
-            batch_rl_data_record=batch_rl_data_record
+    def execute_1_step(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
+        batch_fov = self.prepare_feature(batch_rl_data_record=batch_rl_data_record)
+        assert batch_fov is not None
+        return self.forward(
+            batch_fov=batch_fov,
         )
-        return self.brain(batch_features)

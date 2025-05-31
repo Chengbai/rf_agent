@@ -389,14 +389,33 @@ class GRPOTrainer:
         batch_rl_data_record: RLDataRecord,
         dataset: EpisodeDataset,
         step: int,
+        write_model: bool = False,
         debug: bool = False,
     ):
         assert mode in ["TRAIN", "EVAL"]
         assert batch_rl_data_record is not None
         assert dataset is not None
 
+        if write_model:
+            # batch_fov, batch_cur_position, batch_target_position = (
+            #     self.policy.prepare_feature(batch_rl_data_record=batch_rl_data_record)
+            # )
+            # self.writer.add_graph(
+            #     self.policy,
+            #     input_to_model=(batch_fov, batch_cur_position, batch_target_position),
+            # )
+            batch_features = self.policy.prepare_feature(
+                batch_rl_data_record=batch_rl_data_record
+            )
+            self.writer.add_graph(
+                self.policy,
+                input_to_model=batch_features,
+            )
+
         # Flaten the fov
-        batch_logits = self.policy(batch_rl_data_record=batch_rl_data_record)
+        batch_logits = self.policy.execute_1_step(
+            batch_rl_data_record=batch_rl_data_record,
+        )
         batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
             logits=batch_logits, k=self.config.top_k if mode == "TRAIN" else 1
         )
@@ -515,6 +534,7 @@ class GRPOTrainer:
                     batch_rl_data_record=batch_rl_data_record,
                     dataset=dataset,
                     step=((batch_idx + 1) % self.config.episode_steps),
+                    write_model=step == 0,  # very 1st step
                     debug=debug,
                 )
 

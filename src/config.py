@@ -7,7 +7,7 @@ from matplotlib.colors import ListedColormap
 @dataclass
 class Config:
     # Device
-    device = torch.device("cpu")  # torch.device("mps")
+    device = torch.device("mps")  # torch.device("mps")
 
     # world
     world_min_x: int = 0
@@ -25,7 +25,7 @@ class Config:
     test_dataset_length: int = 10
     test_batch_size: int = 2
 
-    eval_dataset_length: int = 1000
+    eval_dataset_length: int = 10
     eval_batch_size: int = eval_dataset_length // 5
 
     # Actions
@@ -68,7 +68,7 @@ class Config:
     lr = 100.0
     epoches: int = 10
     episode_group_size: int = 50
-    episode_steps: int = 15
+    episode_steps: int = 10
     # episodes_per_iteration: int = 2
 
     # EPSILON
@@ -84,14 +84,14 @@ class Config:
     blocked_reward = torch.tensor(-500.0)
 
     # Transformer
-    embedding: int = 50
+    multi_heads: int = 10
+    embedding: int = multi_heads * 5  # Note assert embedding % multi_heads == 0
+    qk_projection = multi_heads * 10
     img_in_channels: int = 1  # fov is 1 channel image
     img_kernel_size: int = 1  # in pixel
     img_tokens: int = (world_height // img_kernel_size) * (
         world_width // img_kernel_size
     )
-    multi_heads: int = 10
-    qkv_projection = multi_heads * 2
-    transformer_block_layer1: int = 2 * qkv_projection
+    transformer_block_layer1: int = 2 * qk_projection
     transformer_blocks = 2
     trunk_features: int = 50
