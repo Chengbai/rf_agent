@@ -107,23 +107,21 @@ class World:
 
         top_left_pos = center_pos + torch.tensor(
             [
-                -self.config.field_of_view_height - 1,
-                -self.config.field_of_view_width - 1,
+                -self.config.field_of_view_height,
+                -self.config.field_of_view_width,
             ]
         )
 
         sy = int(top_left_pos[0])  # Rows -> y-axis
         sx = int(top_left_pos[1])  # Columns -> x-axis
         fov_tensor = F.crop(
-            self.world_board_with_fov_padding,
-            sx
-            + self.config.field_of_view_width
-            + 1,  # because padding all 4 sides with `field_of_view`
-            sy
-            + self.config.field_of_view_height
-            + 1,  # because padding all 4 sides with `field_of_view`
-            2 * self.config.field_of_view_height + 1,
-            2 * self.config.field_of_view_width + 1,
+            img=self.world_board_with_fov_padding,
+            top=sy
+            + self.config.field_of_view_height,  # because padding all 4 sides with `field_of_view`
+            left=sx
+            + self.config.field_of_view_width,  # because padding all 4 sides with `field_of_view`
+            height=2 * self.config.field_of_view_height,
+            width=2 * self.config.field_of_view_width,
         )
 
         return fov_tensor.clone()

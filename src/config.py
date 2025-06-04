@@ -1,3 +1,5 @@
+# Create 2025
+import math
 import torch
 
 from dataclasses import dataclass, field
@@ -7,25 +9,25 @@ from matplotlib.colors import ListedColormap
 @dataclass
 class Config:
     # Device
-    device = torch.device("mps")  # torch.device("mps")
+    device = torch.device("cpu")  # torch.device("mps")
 
     # world
     world_min_x: int = 0
-    world_max_x: int = 11
+    world_max_x: int = 22
     world_min_y: int = 0
-    world_max_y: int = 11
+    world_max_y: int = 22
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
-    world_block_probability = 0.4
+    world_block_probability = 0.2
 
     # Dataset
     train_dataset_length: int = 10000
-    train_batch_size: int = 50
+    train_batch_size: int = 100
 
     test_dataset_length: int = 10
     test_batch_size: int = 2
 
-    eval_dataset_length: int = 10
+    eval_dataset_length: int = 500
     eval_batch_size: int = eval_dataset_length // 5
 
     # Actions
@@ -65,10 +67,10 @@ class Config:
 
     # GRPO policy training
     # Train / Eval / Test
-    lr = 100.0
+    lr = 1.0
     epoches: int = 10
     episode_group_size: int = 50
-    episode_steps: int = 10
+    episode_steps: int = 15
     # episodes_per_iteration: int = 2
 
     # EPSILON
@@ -88,7 +90,7 @@ class Config:
     embedding: int = multi_heads * 5  # Note assert embedding % multi_heads == 0
     qk_projection = multi_heads * 10
     img_in_channels: int = 1  # fov is 1 channel image
-    img_kernel_size: int = 1  # in pixel
+    img_kernel_size: int = 3  # in pixel
     img_tokens: int = (world_height // img_kernel_size) * (
         world_width // img_kernel_size
     )
