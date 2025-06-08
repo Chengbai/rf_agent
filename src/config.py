@@ -21,7 +21,7 @@ class Config:
     world_block_probability = 0.2
 
     # Dataset
-    train_dataset_length: int = 10000
+    train_dataset_length: int = 50000
     train_batch_size: int = 100
 
     test_dataset_length: int = 10
@@ -68,8 +68,8 @@ class Config:
     # GRPO policy training
     # Train / Eval / Test
     lr = 1.0
-    epoches: int = 10
-    episode_group_size: int = 50
+    epoches: int = 15
+    episode_group_size: int = 8
     episode_steps: int = 15
     # episodes_per_iteration: int = 2
 
@@ -95,5 +95,5 @@ class Config:
         world_width // img_kernel_size
     )
     transformer_block_layer1: int = 2 * qk_projection
-    transformer_blocks = 2
+    transformer_blocks = 3
     trunk_features: int = 50

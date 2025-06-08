@@ -254,7 +254,9 @@ class GRPOTrainer:
         if write_tensorboard and self.writer is not None:
             self.writer.add_scalar(
                 f"{dataset.split}:learning_rate",
-                self.learning_rate_scheduler.get_lr()[0], # current model has only one parameter group
+                self.learning_rate_scheduler.get_last_lr()[
+                    0
+                ],  # current model has only one parameter group
                 step,
             )
 
