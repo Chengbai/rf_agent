@@ -68,6 +68,10 @@ class RewardModel:
 
         # moving closer, get reward
         # l2-norm
-        return -torch.linalg.vector_norm(
+        batch_rewards = -torch.linalg.vector_norm(
             batach_cur_pos - batch_target_pos, dim=1, ord=2
         )
+        batch_rewards[batch_rewards == 0.0] = (
+            10.0  # big reward if end at the target position
+        )
+        return batch_rewards

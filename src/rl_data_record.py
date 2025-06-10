@@ -142,6 +142,23 @@ class RLDataRecord:
             == self.batch_top_k_prob_history.size()
         )
 
+    def get_batch_group_episodes_rewards(
+        self, reward_model: RewardModel
+    ) -> torch.Tensor:
+        assert reward_model is not None
+        batch_episodes_rewards = reward_model.reward(
+            batach_cur_pos=self.batch_agent_current_pos,
+            batch_target_pos=self.batch_agent_target_pos,
+        )
+
+        # B x G
+        batch_group_episodes_rewards = batch_episodes_rewards.view(
+            -1,
+            self.config.episode_group_size,
+        )
+
+        return batch_group_episodes_rewards
+
     def viz_fov(
         self,
         ax: matplotlib.axes._axes.Axes,

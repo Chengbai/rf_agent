@@ -9,7 +9,7 @@ from matplotlib.colors import ListedColormap
 @dataclass
 class Config:
     # Device
-    device = torch.device("cpu")  # torch.device("mps")
+    device = torch.device("mps")  # torch.device("mps")
 
     # world
     world_min_x: int = 0
@@ -68,7 +68,7 @@ class Config:
     # GRPO policy training
     # Train / Eval / Test
     lr = 1.0
-    epoches: int = 15
+    epoches: int = 5
     episode_group_size: int = 8
     episode_steps: int = 15
     # episodes_per_iteration: int = 2
