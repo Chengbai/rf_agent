@@ -100,6 +100,12 @@ class TransformerPolicy(nn.Module):
         assert config is not None
         self.config = config
 
+        self.fov_token_embedding = nn.Embedding(
+            num_embeddings=self.config.ENCODE_NUM_EMBEEDING,
+            embedding_dim=self.config.ENCODE_EMBEEDING_DIM,
+            max_norm=1.0,
+        )
+
         # fov image to embedding
         # B x T x Emb
         self.img_to_emb = nn.Conv2d(
@@ -217,8 +223,19 @@ class TransformerPolicy(nn.Module):
             == batch_target_position.size(0)
         )
         B, C, H, W = batch_fov.size()
+        batch_fov = batch_fov.permute(0, 2, 3, 1)  # B x H x W x C(1)
+        batch_fov = batch_fov.to(dtype=torch.int)  # B x H x W x C(1)
 
-        fov_emb = self.img_to_emb(batch_fov)  # B x Emb x H x W
+        batch_fov_token_emb = self.fov_token_embedding(
+            batch_fov
+        )  # B x  H x W x C(1) x fov_token_Emb
+        batch_fov_token_emb = torch.squeeze(
+            batch_fov_token_emb, dim=3
+        )  # B x  H x W x fov_token_Emb
+        batch_fov_token_emb = batch_fov_token_emb.permute(
+            0, 3, 1, 2
+        )  # B x fov_token_Emb x H x W
+        fov_emb = self.img_to_emb(batch_fov_token_emb)  # B x Emb x H x W
         fov_emb = fov_emb.reshape(B, self.config.embedding, -1)  # B x Emb x T
         fov_emb = fov_emb.permute(0, 2, 1)  # B x T x Emb
 

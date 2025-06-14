@@ -26,6 +26,7 @@ class World:
     x_max: int
     y_min: int
     y_max: int
+    center: torch.Tensor
     world_board: torch.tensor
     world_board_with_fov_padding: torch.tensor
 
@@ -40,6 +41,12 @@ class World:
             x_max=config.world_max_x,
             y_min=config.world_min_y,
             y_max=config.world_max_y,
+            center=torch.tensor(
+                [
+                    (config.world_min_y + config.world_max_y) / 2.0,
+                    (config.world_min_x + config.world_max_x) / 2.0,
+                ]
+            ),
             world_board=torch.zeros(
                 size=(config.world_height, config.world_width)
             ),  # Rows x Columns = H x W = Y x X
@@ -71,6 +78,7 @@ class World:
             x_max=self.x_max,
             y_min=self.y_min,
             y_max=self.y_max,
+            center=self.center.clone(),
             world_board=self.world_board.clone(),
             world_board_with_fov_padding=self.world_board_with_fov_padding.clone(),
         )
@@ -84,6 +92,9 @@ class World:
         action_reward = action
         reward = max(0, state.x + action)
         return reward
+
+    def get_center(self) -> torch.Tensor:
+        return self.center
 
     def fov(self, center_pos: torch.tensor) -> torch.tensor:
         assert center_pos is not None

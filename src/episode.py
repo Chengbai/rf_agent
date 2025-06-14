@@ -39,8 +39,22 @@ class Episode:
             state_id=episode_id,
             # x=0,
             # y=0,
-            x=(config.world_min_x + config.world_max_x) // 2,
-            y=(config.world_min_y + config.world_max_y) // 2,
+            x=(
+                (config.world_min_x + config.world_max_x) // 2
+                if config.start_center_of_fov
+                else math.floor(
+                    random.uniform(config.world_min_x, config.world_max_x - 1.0)
+                )
+                * 1.0
+            ),
+            y=(
+                (config.world_min_y + config.world_max_y) // 2
+                if config.start_center_of_fov
+                else math.floor(
+                    random.uniform(config.world_min_y, config.world_max_y - 1.0)
+                )
+                * 1.0
+            ),
         )
         target_state = State.create_from(
             config=config,
@@ -183,12 +197,17 @@ class Episode:
         return self.agent.reward_prob()
 
     def fov(self, center_pos: torch.tensor) -> torch.tensor:
+        if not self.config.start_center_of_fov:
+            # overwrite the given `center_pos`
+            center_pos = self.world.get_center()
+
         world_fov = self.world.fov(center_pos=center_pos)
 
         # Encode the fov
         cy = int(center_pos[0])  # Rows -> y-axis
         cx = int(center_pos[1])  # Columns -> x-axis
-        world_fov[cx, cy] = self.config.ENCODE_START_POS
+        if self.config.start_center_of_fov:
+            world_fov[cx, cy] = self.config.ENCODE_START_POS
 
         target_pos = self.agent.target_state.position()
         ty = int(target_pos[0])  # Rows -> y-axis
