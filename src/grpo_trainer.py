@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from src.config import Config
 from src.episode import Episode
 from src.episode_batch_repeat_sampler import EpisodeBatchRepeatSampler
-from src.episode_dataset import EpisodeDataset
+from src.episode_dataset import EpisodeRLDataset
 from src.policy.policy_base import PolicyBaseModel
 from src.rl_data_record import RLDataRecord
 from src.utils import get_color, to_device_collate, top_k_sampling
@@ -44,7 +44,7 @@ class GRPOTrainer:
         self.learning_rate_scheduler = None
         self.writer = SummaryWriter()
 
-    def get_data_loader(self, dataset: EpisodeDataset) -> DataLoader:
+    def get_data_loader(self, dataset: EpisodeRLDataset) -> DataLoader:
         assert dataset is not None
 
         if dataset.split == "TRAIN":
@@ -99,7 +99,7 @@ class GRPOTrainer:
         self,
         batch_rl_data_record: RLDataRecord,
         batch_episode_indices: list[int],
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         step: int,
         write_tensorboard: bool = True,
     ) -> torch.tensor:
@@ -253,7 +253,7 @@ class GRPOTrainer:
         self,
         batch_episode_indices: list[int],
         batch_rl_data_record: RLDataRecord,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         step: int,
     ):
         assert batch_episode_indices is not None
@@ -273,7 +273,7 @@ class GRPOTrainer:
         self,
         batch_episode_indices: list[int],
         batch_rl_data_record: RLDataRecord,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         step: int,
     ):
         assert batch_episode_indices is not None
@@ -309,7 +309,7 @@ class GRPOTrainer:
         self,
         batch_episode_indices: list[int],
         batch_rl_data_record: RLDataRecord,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         step: int,
         debug: bool,
     ):
@@ -350,7 +350,7 @@ class GRPOTrainer:
         self,
         batch_episode_indices: list[int],
         batch_rl_data_record: RLDataRecord,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         epoch: int,
         batch_idx: int,
         step: int,
@@ -407,7 +407,7 @@ class GRPOTrainer:
         self,
         mode: str,
         batch_rl_data_record: RLDataRecord,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         step: int,
         write_model: bool = False,
         debug: bool = False,
@@ -455,7 +455,7 @@ class GRPOTrainer:
     def _run_eval(
         self,
         epoch: int,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         dataloader: DataLoader,
         step: int,
         debug: bool,
@@ -529,7 +529,7 @@ class GRPOTrainer:
 
     def _run_train(
         self,
-        dataset: EpisodeDataset,
+        dataset: EpisodeRLDataset,
         dataloader: DataLoader,
         epoch: int,
         step: int,
@@ -614,8 +614,8 @@ class GRPOTrainer:
 
     def run(
         self,
-        train_dataset: EpisodeDataset,
-        eval_dataset: EpisodeDataset,
+        train_dataset: EpisodeRLDataset,
+        eval_dataset: EpisodeRLDataset,
         run_profile: bool = False,
         debug: bool = False,
     ):

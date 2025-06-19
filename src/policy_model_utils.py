@@ -11,7 +11,7 @@ from tqdm import tqdm
 from src.action import Action
 from src.config import Config
 from src.episode import Episode
-from src.episode_dataset import EpisodeDataset
+from src.episode_dataset import EpisodeRLDataset
 from src.policy.policy_base import PolicyBaseModel
 from src.policy_factory import PolicyMode, PolicyFactory
 from src.reward_model import RewardModel
@@ -89,7 +89,7 @@ def inference_and_plot_policy(
 
 def inference_and_plot_policy_v2(
     config: Config,
-    dataset: EpisodeDataset,
+    dataset: EpisodeRLDataset,
     dataloader: DataLoader,
     policy: PolicyBaseModel,
     reward_model: RewardModel,

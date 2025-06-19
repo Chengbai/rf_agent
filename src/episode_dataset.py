@@ -16,7 +16,7 @@ from src.world import World
 import src.utils as utils
 
 
-class EpisodeDataset(Dataset):
+class EpisodeRLDataset(Dataset):
     def __init__(self, config: Config, split: str):
         super().__init__()
         assert config is not None
@@ -60,6 +60,7 @@ class EpisodeDataset(Dataset):
             "agent_start_pos": target_episode.agent.start_state.position(),
             "agent_target_pos": target_episode.agent.target_state.position(),
             "agent_current_pos": target_episode.agent.current_state.position(),
+            # "best_path": target_episode.best_path,
             # "world_id": target_episode.world.world_id,
             # "position": target_episode.agent.current_state.position(),
             # "normalized_position": target_episode.agent.current_state.normalized_position(),

@@ -29,6 +29,7 @@ class Episode:
     config: Config
     world: World
     agent: Agent
+    best_path: torch.Tensor = None
 
     @staticmethod
     def new(episode_id: str) -> Episode:
@@ -95,6 +96,13 @@ class Episode:
         return Episode(
             episode_id=episode_id, config=start_state.config, world=world, agent=agent
         )
+
+    def __post_init__(self):
+        self.init_best_path()
+
+    def init_best_path(self) -> Episode:
+        self.best_path = self.optimal_path()
+        return self
 
     def clone(self, repeat: int) -> list[Episode]:
         assert repeat > 0
@@ -253,9 +261,12 @@ class Episode:
 
     def viz_optimal_path(self, ax: matplotlib.axes._axes.Axes):
         assert ax is not None
-        best_path = self.optimal_path()
+        if self.best_path is None:
+            print(f"Cannot find the best path.")
+            return
+
         fov = self.fov(center_pos=self.agent.start_state.position())
-        for pos in best_path:
+        for pos in self.best_path:
             fov[pos[1], pos[0]] = self.config.ENCODE_START_STEP_IDX
         ax.pcolormesh(fov, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
 
@@ -274,7 +285,7 @@ class Episode:
 
     def _shortest_dist(
         self, start_pos: torch.Tensor, target_pos: torch.Tensor, fov: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | None:
         assert start_pos is not None
         assert start_pos.size() == (2,)
         start_pos = start_pos.to(torch.int).tolist()
@@ -360,4 +371,4 @@ class Episode:
                             next_path,
                         )
                     )
-        return torch.tensor(best_path)
+        return torch.tensor(best_path) if best_path else None

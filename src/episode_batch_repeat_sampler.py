@@ -3,12 +3,12 @@ import random
 
 from torch.utils.data import Sampler
 
-from src.episode_dataset import EpisodeDataset
+from src.episode_dataset import EpisodeRLDataset
 
 
 class EpisodeBatchRepeatSampler(Sampler):
     def __init__(
-        self, dataset: EpisodeDataset, batch_size: int, group_size: int, repeats: int
+        self, dataset: EpisodeRLDataset, batch_size: int, group_size: int, repeats: int
     ):
         assert dataset is not None
         assert batch_size > 0
