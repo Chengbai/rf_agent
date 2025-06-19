@@ -254,7 +254,7 @@ class Episode:
     def viz_optimal_path(self, ax: matplotlib.axes._axes.Axes):
         assert ax is not None
         best_path = self.optimal_path()
-        fov = self.fov(center_pos=self.agt.start_state.position())
+        fov = self.fov(center_pos=self.agent.start_state.position())
         for pos in best_path:
             fov[pos[1], pos[0]] = self.config.ENCODE_START_STEP_IDX
         ax.pcolormesh(fov, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
