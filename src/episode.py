@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import math
 import matplotlib
+import queue
 import random
 
 from dataclasses import dataclass
+from functools import partial
 
 import torch
 
@@ -248,3 +250,114 @@ class Episode:
     def reset(self):
         self.agent.reset()
         self.world.reset()
+
+    def viz_optimal_path(self, ax: matplotlib.axes._axes.Axes):
+        assert ax is not None
+        best_path = self.optimal_path()
+        fov = self.fov(center_pos=self.agt.start_state.position())
+        for pos in best_path:
+            fov[pos[1], pos[0]] = self.config.ENCODE_START_STEP_IDX
+        ax.pcolormesh(fov, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
+
+    def optimal_path(self) -> torch.Tensor:
+        start_pos = self.agent.start_state.position()
+        target_pos = self.agent.target_state.position()
+        fov = self.fov(center_pos=self.agent.start_state.position())
+
+        shortest_path = self._shortest_dist(
+            start_pos=start_pos,
+            target_pos=target_pos,
+            fov=fov,
+        )
+
+        return shortest_path
+
+    def _shortest_dist(
+        self, start_pos: torch.Tensor, target_pos: torch.Tensor, fov: torch.Tensor
+    ) -> torch.Tensor:
+        assert start_pos is not None
+        assert start_pos.size() == (2,)
+        start_pos = start_pos.to(torch.int).tolist()
+        target_pos = target_pos.to(torch.int).tolist()
+
+        def _dist(
+            start_pos: list,
+            target_pos: list,
+            current_path_length: int,
+        ) -> float:
+            return (
+                current_path_length
+                + torch.linalg.norm(
+                    (torch.tensor(start_pos) - torch.tensor(target_pos)).to(
+                        torch.float
+                    ),
+                    ord=2,
+                    dim=-1,
+                ).item()
+            )
+
+        dist = partial(_dist, target_pos=target_pos)
+
+        visited = set()
+        best_path = None
+        pq = queue.PriorityQueue()
+        pq.put((dist(start_pos=start_pos, current_path_length=0), start_pos, []))
+        while not pq.empty():
+            distance, cur_pos, cur_path = pq.get()
+            # print(f"distance: {distance}, cur_pos: {cur_pos}, cur_path: {cur_path}")
+
+            if cur_pos == target_pos:
+                if best_path is None:
+                    best_path = cur_path
+                else:
+                    if len(best_path) > len(cur_path):
+                        best_path = cur_path
+                    else:
+                        break
+                continue
+
+            if cur_path and best_path is not None and len(cur_path) >= len(best_path):
+                # could have multiple. For here we only consider 1.
+                break
+
+            for r in range(-1, 2):
+                if cur_pos[1] + r < 0 or cur_pos[1] + r >= fov.size(1):  # 1 -> x/row
+                    continue
+
+                for c in range(-1, 2):
+                    if r == 0 and c == 0:
+                        continue
+
+                    if cur_pos[0] + c < 0 or cur_pos[0] + c >= fov.size(
+                        0
+                    ):  # 0 -> y/column
+                        continue
+
+                    next_pos = [cur_pos[0] + c, cur_pos[1] + r]
+
+                    # Test visited
+                    if tuple(next_pos) in visited:
+                        continue
+                    else:
+                        visited.add(tuple(next_pos))
+
+                    # Test Block
+                    next_val = fov[next_pos[1]][next_pos[0]]
+                    if next_val == self.config.ENCODE_BLOCK:
+                        continue
+
+                    next_path = cur_path.copy()
+                    next_path.append(next_pos)
+                    # print(
+                    #     f"'dist': {dist(start_pos=next_pos, current_path_length=len(next_path))}, 'next_pos': {next_pos}, 'next_path': {next_path}"
+                    # )
+                    pq.put(
+                        (
+                            dist(
+                                start_pos=next_pos, current_path_length=len(next_path)
+                            ),
+                            next_pos,
+                            next_path,
+                        )
+                    )
+        return torch.tensor(best_path)
