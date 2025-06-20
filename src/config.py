@@ -18,7 +18,7 @@ class Config:
     world_max_y: int = 32
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
-    world_block_probability = 0.2
+    world_block_probability = 0.3
 
     # Dataset
     train_dataset_length: int = 50000
@@ -36,6 +36,13 @@ class Config:
             [(1 * i, 1 * j) for i in range(-1, 2) for j in range(-1, 2)],
             device=Config.device,
         )
+    )
+    action_to_idx: dict = field(
+        default_factory=lambda: {
+            (1 * i, 1 * j): ((i + 1) * 3 + (j + 1))
+            for i in range(-1, 2)
+            for j in range(-1, 2)
+        }
     )
 
     # FOV

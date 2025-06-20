@@ -174,3 +174,157 @@ def inference_and_plot_policy_v2(
                     }
                 )
                 batch_rl_data_record = None
+
+
+def inference_and_plot_pre_train_policy(
+    config: Config,
+    dataset: EpisodeRLDataset,
+    dataloader: DataLoader,
+    policy: PolicyBaseModel,
+    steps: int,
+):
+    assert config is not None
+    assert dataset is not None
+    assert dataloader is not None
+    assert policy is not None
+    assert len(dataloader) > 0
+
+    with tqdm(dataloader, desc=f"{dataset.split}") as t:
+        cur_batch_episode_idx = None
+        batch_rl_data_record = None
+        for batch_idx, batch_data in enumerate(t):
+            # step = epoch * len(train_dataloader) + batch_idx
+            if batch_idx >= 10:
+                # only viz the first 4 batches
+                break
+
+            batch_fov: torch.Tensor = batch_data["fov"]
+            batch_episode_idx: list = batch_data["episode_idx"]
+            batch_cur_position: torch.Tensor = batch_data["agent_current_pos"]
+            batch_target_position: torch.Tensor = batch_data["agent_target_pos"]
+            batch_best_next_pos: torch.Tensor = batch_data["best_next_pos"]
+            batch_best_next_action: torch.Tensor = batch_data["best_next_action"]
+
+            batch_origin_cur_position = batch_cur_position.clone()
+            batch_origin_batch_fov = batch_fov.clone()
+            for step in range(steps):
+                batch_logits = policy(
+                    batch_fov=batch_origin_batch_fov,
+                    batch_cur_position=batch_cur_position,
+                    batch_target_position=batch_target_position,
+                )
+
+                batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(
+                    logits=batch_logits, k=1
+                )
+
+                # Get the action update
+                batch_actions: torch.Tensor = config.possible_actions[
+                    batch_action_idx.squeeze(dim=1)
+                ]
+                # print(f"batch_actions: {batch_actions}")
+                batch_agent_next_pos = batch_cur_position + batch_actions
+                batch_agent_next_pos[:, 0] = torch.clamp(
+                    batch_agent_next_pos[:, 0],
+                    min=config.world_min_x,
+                    max=config.world_max_x - 1,
+                )
+
+                batch_agent_next_pos[:, 1] = torch.clamp(
+                    batch_agent_next_pos[:, 1],
+                    min=config.world_min_y,
+                    max=config.world_max_y - 1,
+                )
+
+                B, _ = batch_agent_next_pos.size()
+                x_indices = batch_agent_next_pos[:, 0].to(torch.int)
+                y_indices = batch_agent_next_pos[:, 1].to(torch.int)
+                blocked_pos_mask = (
+                    batch_fov[torch.arange(B), 0, y_indices, x_indices]
+                    == config.ENCODE_BLOCK  # Row - Y-axis, Col - X-axis
+                )
+                # Action overwrite:
+                #  - cannot move onto the BLOCK
+                #  - if already at the TARGET position, no more move
+                batch_actions[blocked_pos_mask] = torch.tensor(
+                    [0, 0], device=config.device
+                )
+
+                # batch_actions[self.batch_at_target_position_mask] = torch.tensor([0, 0])
+                batch_cur_position += batch_actions
+                batch_cur_position[:, 0] = torch.clamp(
+                    batch_cur_position[:, 0],
+                    min=config.world_min_x,
+                    max=config.world_max_x - 1,
+                )
+
+                batch_cur_position[:, 1] = torch.clamp(
+                    batch_cur_position[:, 1],
+                    min=config.world_min_y,
+                    max=config.world_max_y - 1,
+                )
+
+                # Update the fov
+                x_indices = batch_cur_position[:, 0].to(torch.int)
+                y_indices = batch_cur_position[:, 1].to(torch.int)
+                batch_fov[torch.arange(B), 0, y_indices, x_indices] = (
+                    config.ENCODE_START_STEP_IDX + step  # Row - Y-axis, Col - X-axis
+                )
+
+            # Update the episode voz + each step prediction
+            target_episodes = dataset.get_episods(
+                batch_episode_indices=batch_episode_idx
+            )
+
+            for idx, episode in enumerate(target_episodes):
+                if idx == 0:  # viz the 1st batch 1st item
+                    start_x = int(episode.agent.start_state.x)
+                    start_y = int(episode.agent.start_state.y)
+                    target_x = int(episode.agent.target_state.x)
+                    target_y = int(episode.agent.target_state.y)
+
+                    # only viz the 1st episode
+                    # avoid too much data
+                    fig, axes = plt.subplots(
+                        nrows=1,
+                        ncols=3,
+                        figsize=config.triple_figure_size,
+                    )
+                    episode.viz_fov(
+                        ax=axes[0],
+                    )
+                    episode.viz_optimal_path(
+                        ax=axes[1],
+                    )
+                    axes[2].pcolormesh(
+                        batch_fov[idx][0].cpu(),
+                        cmap=config.CMAP,
+                        edgecolors="gray",
+                        linewidths=0.5,
+                    )
+                    for ax in axes:
+                        ax.annotate(
+                            f"start",
+                            xy=(start_x, start_y),
+                            xycoords="data",
+                            color="black",
+                            fontsize=12,
+                        )
+                        ax.annotate(
+                            f"target",
+                            xy=(target_x, target_y),
+                            xycoords="data",
+                            color="black",
+                            fontsize=12,
+                        )
+                    plt.show()
+
+                episode.reset()
+
+            t.set_postfix(
+                {
+                    "split": dataset.split,
+                    "batch_idx": batch_idx,
+                    "target_episodes": [e.episode_id for e in target_episodes],
+                }
+            )
