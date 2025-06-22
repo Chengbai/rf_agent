@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from src.config import Config
 from src.episode import Episode
+from src.train_stage import TrainStage
 from src.episode_batch_repeat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeRLDataset
 from src.policy.policy_base import PolicyBaseModel
@@ -38,9 +39,7 @@ class GRPOTrainer:
         self.policy.to(config.device)
         self.reward_model = reward_model
 
-        self.optimizer = torch.optim.AdamW(
-            policy.parameters(), lr=config.lr, weight_decay=0.01
-        )
+        self.optimizer = None
         self.learning_rate_scheduler = None
         self.writer = SummaryWriter()
 
@@ -363,6 +362,8 @@ class GRPOTrainer:
                 dataset=dataset,
                 step=step,
             )
+        except Exception as exp:
+            print(f"error: {exp}")
         finally:
             target_episodes = dataset.get_episods(
                 batch_episode_indices=batch_episode_indices
@@ -616,6 +617,7 @@ class GRPOTrainer:
         self,
         train_dataset: EpisodeRLDataset,
         eval_dataset: EpisodeRLDataset,
+        train_stage: TrainStage,
         run_profile: bool = False,
         debug: bool = False,
     ):
@@ -628,6 +630,16 @@ class GRPOTrainer:
 
         train_dataloader = self.get_data_loader(dataset=train_dataset)
         eval_dataloader = self.get_data_loader(dataset=eval_dataset)
+
+        self.optimizer = torch.optim.AdamW(
+            self.policy.parameters(),
+            lr=(
+                self.config.grpo_lr
+                if train_stage == TrainStage.PRE_TRAIN
+                else self.config.fine_tune_lr
+            ),
+            weight_decay=0.01,
+        )
 
         total_steps = (
             self.config.epoches * len(train_dataloader) // self.config.episode_steps

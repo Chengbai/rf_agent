@@ -13,19 +13,20 @@ class Config:
 
     # world
     world_min_x: int = 0
-    world_max_x: int = 32
+    world_max_x: int = 22
     world_min_y: int = 0
-    world_max_y: int = 32
+    world_max_y: int = 22
     world_width: int = int(world_max_x - world_min_x)
     world_height: int = int(world_max_y - world_min_y)
     world_block_probability = 0.3
 
     # Dataset
-    train_dataset_length: int = 50000
-    train_batch_size: int = 100
+    train_dataset_length: int = 105000
+    train_batch_size: int = 150
+    assert train_dataset_length % train_batch_size == 0
 
-    test_dataset_length: int = 10
-    test_batch_size: int = 2
+    test_dataset_length: int = 100
+    test_batch_size: int = test_dataset_length // 5
 
     eval_dataset_length: int = 500
     eval_batch_size: int = eval_dataset_length // 5
@@ -78,8 +79,10 @@ class Config:
 
     # GRPO policy training
     # Train / Eval / Test
-    lr = 1.0
-    epoches: int = 10
+    grpo_lr = 1.0  # GRPO use
+    fine_tune_lr = 1e-2
+    pre_train_lr = 5e-3  # Pre-train
+    epoches: int = 2
     episode_group_size: int = 8
     episode_steps: int = 20
     # episodes_per_iteration: int = 2

@@ -28,10 +28,12 @@ def save_policy_model(policy: PolicyBaseModel):
     print(f"Save policy model to: {model_path}")
 
 
-def load_policy_model(config: Config, policy_model_path: str) -> PolicyBaseModel:
+def load_policy_model(
+    config: Config, policy_mode: PolicyMode, policy_model_path: str
+) -> PolicyBaseModel:
     assert policy_model_path
     assert Path(policy_model_path).exists()
-    policy = PolicyFactory.create(policy_mode=PolicyMode.LINEAR_MODEL, config=config)
+    policy = PolicyFactory.create(policy_mode=policy_mode, config=config)
     policy.load_state_dict(torch.load(policy_model_path))
     return policy
 
@@ -106,6 +108,9 @@ def inference_and_plot_policy_v2(
         cur_batch_episode_idx = None
         batch_rl_data_record = None
         for batch_idx, batch_data_items in enumerate(t):
+            if batch_idx > 10 * config.episode_steps:
+                break
+
             # step = epoch * len(train_dataloader) + batch_idx
             if batch_rl_data_record is None:
                 batch_rl_data_record = RLDataRecord(
@@ -194,7 +199,7 @@ def inference_and_plot_pre_train_policy(
         batch_rl_data_record = None
         for batch_idx, batch_data in enumerate(t):
             # step = epoch * len(train_dataloader) + batch_idx
-            if batch_idx >= 10:
+            if batch_idx >= 3:
                 # only viz the first 4 batches
                 break
 
@@ -277,7 +282,7 @@ def inference_and_plot_pre_train_policy(
             )
 
             for idx, episode in enumerate(target_episodes):
-                if idx == 0:  # viz the 1st batch 1st item
+                if True:  # idx == 0:  # viz the 1st batch 1st item
                     start_x = int(episode.agent.start_state.x)
                     start_y = int(episode.agent.start_state.y)
                     target_x = int(episode.agent.target_state.x)

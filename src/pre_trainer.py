@@ -39,10 +39,10 @@ class PreTrainer:
         self.policy.to(config.device)
 
         self.optimizer = torch.optim.AdamW(
-            policy.parameters(), lr=config.lr, weight_decay=0.01
+            policy.parameters(), lr=config.pre_train_lr, weight_decay=0.01
         )
         self.learning_rate_scheduler = None
-        self.criterion = None
+        self.criterion = nn.CrossEntropyLoss()
         self.writer = SummaryWriter()
 
     def get_data_loader(self, dataset: EpisodeRLDataset) -> DataLoader:
@@ -116,6 +116,13 @@ class PreTrainer:
                 self.optimizer.step()
                 self.learning_rate_scheduler.step()
                 current_lr = self.learning_rate_scheduler.get_last_lr()[0]
+
+                if self.writer is not None:
+                    self.writer.add_scalar(
+                        f"{dataset.split}:current_lr",
+                        current_lr,
+                        step,
+                    )
 
                 t.set_postfix(
                     {
@@ -213,7 +220,6 @@ class PreTrainer:
         self.learning_rate_scheduler = CosineAnnealingLR(
             self.optimizer, T_max=total_steps - warmup_steps
         )
-        self.criterion = nn.CrossEntropyLoss()
 
         print(
             f"train_dataloader: {len(train_dataloader)}, eval_dataloader: {len(eval_dataloader)}"
