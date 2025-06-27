@@ -1,9 +1,15 @@
+import cv2
+import io
+import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
+
 from datetime import datetime, timezone
+from pathlib import Path
+from PIL import Image
 
 import torch
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from tqdm import tqdm
@@ -16,16 +22,64 @@ from src.policy.policy_base import PolicyBaseModel
 from src.policy_factory import PolicyMode, PolicyFactory
 from src.reward_model import RewardModel
 from src.rl_data_record import RLDataRecord
-from src.utils import get_color, top_k_sampling
+from src.train_stage import TrainStage
+from src.utils import get_color, top_k_sampling, clean_data_cache
 
 
-def save_policy_model(policy: PolicyBaseModel):
-    assert policy is not None
-    now_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    model_path = f"rf_model_policy_{now_str}.pt"
-    print(f"model_path: {model_path}")
-    torch.save(policy.state_dict(), model_path)
-    print(f"Save policy model to: {model_path}")
+def new_run_id() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+def save_checkpoint(
+    run_id: str,
+    train_stage: TrainStage,
+    model: PolicyBaseModel,
+    optimizer: torch.optim.Optimizer,
+    epoch: int,
+    lr_sched: torch.optim.lr_scheduler.LRScheduler,
+):
+    assert model is not None
+
+    checkpoint = {
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scheduler_state_dict": lr_sched.state_dict(),
+    }
+
+    checkpoint_path = f"rf_model_policy_{train_stage.name}_{run_id}_{epoch}.pt"
+    torch.save(checkpoint, checkpoint_path)
+    print(f"Save checkpoint to: {checkpoint_path}")
+
+
+def load_checkpoint(
+    checkpoint_path: str,
+    config: Config,
+    policy_mode: PolicyMode = PolicyMode.TRANSFORMER_WITH_LATE_POSITION_FUSION,
+) -> tuple[
+    PolicyBaseModel, torch.optim.Optimizer, torch.optim.lr_scheduler.LRScheduler
+]:
+    assert Path(checkpoint_path).exists()
+
+    # Load checkpoint
+    checkpoint = torch.load(checkpoint_path)
+
+    # Load policy
+    policy = PolicyFactory.create(policy_mode=policy_mode, config=config)
+    policy.load_state_dict(checkpoint["model_state_dict"])
+
+    # Load optimizer
+    # print(f'optimizer: {checkpoint["optimizer_state_dict"]}')
+    optimizer = torch.optim.AdamW(policy.parameters())
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    # LR scheduler
+    scheduler_state_dict = checkpoint["scheduler_state_dict"]
+    # print(f"lr_scheduler: {scheduler_state_dict}")
+    lr_scheduler = CosineAnnealingLR(optimizer, T_max=scheduler_state_dict["T_max"])
+    lr_scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+
+    return policy, optimizer, lr_scheduler
 
 
 def load_policy_model(
@@ -36,6 +90,20 @@ def load_policy_model(
     policy = PolicyFactory.create(policy_mode=policy_mode, config=config)
     policy.load_state_dict(torch.load(policy_model_path))
     return policy
+
+
+def get_model_size(model: torch.nn.Module):
+    # Calculate total number of parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_params}")
+
+    # Calculate model size in bytes (assuming float32)
+    total_bytes = total_params * 4  # Assuming float32
+    print(f"Model size (bytes): {total_bytes}")
+
+    # Calculate model size in MB
+    total_mb = total_bytes / (1024 * 1024)
+    print(f"Model size (MB): {total_mb}")
 
 
 def train_and_plot_policy(
@@ -181,19 +249,104 @@ def inference_and_plot_policy_v2(
                 batch_rl_data_record = None
 
 
+def save_episode_to_img(
+    episode: Episode, episode_fov: torch.Tensor, episode_img_path: str, config: Config
+):
+    start_x = int(episode.agent.start_state.x)
+    start_y = int(episode.agent.start_state.y)
+    target_x = int(episode.agent.target_state.x)
+    target_y = int(episode.agent.target_state.y)
+
+    # only viz the 1st episode
+    # avoid too much data
+    fig, axes = plt.subplots(
+        nrows=1,
+        ncols=3,
+        figsize=config.triple_figure_size,
+    )
+    episode.viz_fov(
+        ax=axes[0],
+    )
+    episode.viz_optimal_path(
+        ax=axes[1],
+    )
+    axes[2].pcolormesh(
+        episode_fov,
+        cmap=config.CMAP,
+        edgecolors="gray",
+        linewidths=0.5,
+    )
+    for ax in axes:
+        ax.annotate(
+            f"start",
+            xy=(start_x, start_y),
+            xycoords="data",
+            color="black",
+            fontsize=12,
+        )
+        ax.annotate(
+            f"target",
+            xy=(target_x, target_y),
+            xycoords="data",
+            color="black",
+            fontsize=12,
+        )
+
+    # Create an in-memory binary stream
+    buffer = io.BytesIO()
+
+    # Save the figure to the buffer
+    fig.savefig(buffer, format="png")  # Specify the format (e.g., 'png')
+
+    # The image data is now in the buffer
+    buffer.seek(
+        0
+    )  # Reset the buffer's position to the beginning if you want to read from it
+
+    image_data = buffer.getvalue()
+    with open(episode_img_path, "wb") as f:
+        f.write(image_data)
+        # print(f"img: {episode_img_path}")
+
+    plt.close()
+    return episode_img_path
+
+
+def save_imgs_to_video(episode_img_group: list[str], episode_video_path: str):
+    # print(f"episode_img_group: {episode_img_group}")
+    # Read the first image to get the size
+    frame = cv2.imread(episode_img_group[0])
+    height, width, layers = frame.shape
+
+    # Initialize video writer
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Use 'mp4v' for MP4 format
+    video = cv2.VideoWriter(episode_video_path, fourcc, 2, (width, height))
+
+    # Add images to the video
+    for image_path in episode_img_group:
+        frame = cv2.imread(image_path)
+        video.write(frame)
+
+    # Release the video writer
+    video.release()
+    cv2.destroyAllWindows()
+
+
 def inference_and_plot_pre_train_policy(
     config: Config,
     dataset: EpisodeRLDataset,
     dataloader: DataLoader,
     policy: PolicyBaseModel,
     steps: int,
-):
+) -> list[str]:
     assert config is not None
     assert dataset is not None
     assert dataloader is not None
     assert policy is not None
     assert len(dataloader) > 0
 
+    episode_videos = []
+    clean_data_cache(config=config)
     with tqdm(dataloader, desc=f"{dataset.split}") as t:
         cur_batch_episode_idx = None
         batch_rl_data_record = None
@@ -281,48 +434,24 @@ def inference_and_plot_pre_train_policy(
                 batch_episode_indices=batch_episode_idx
             )
 
+            episode_img_group = []
+            last_episode_id = None
             for idx, episode in enumerate(target_episodes):
-                if True:  # idx == 0:  # viz the 1st batch 1st item
-                    start_x = int(episode.agent.start_state.x)
-                    start_y = int(episode.agent.start_state.y)
-                    target_x = int(episode.agent.target_state.x)
-                    target_y = int(episode.agent.target_state.y)
+                if last_episode_id != episode.episode_id and len(episode_img_group) > 0:
+                    episode_video_path = f"{config.mp4_folder}{last_episode_id}_{len(episode_img_group)}.mp4"
+                    save_imgs_to_video(episode_img_group, episode_video_path)
+                    episode_videos.append(episode_video_path)
+                    episode_img_group = []
 
-                    # only viz the 1st episode
-                    # avoid too much data
-                    fig, axes = plt.subplots(
-                        nrows=1,
-                        ncols=3,
-                        figsize=config.triple_figure_size,
-                    )
-                    episode.viz_fov(
-                        ax=axes[0],
-                    )
-                    episode.viz_optimal_path(
-                        ax=axes[1],
-                    )
-                    axes[2].pcolormesh(
-                        batch_fov[idx][0].cpu(),
-                        cmap=config.CMAP,
-                        edgecolors="gray",
-                        linewidths=0.5,
-                    )
-                    for ax in axes:
-                        ax.annotate(
-                            f"start",
-                            xy=(start_x, start_y),
-                            xycoords="data",
-                            color="black",
-                            fontsize=12,
-                        )
-                        ax.annotate(
-                            f"target",
-                            xy=(target_x, target_y),
-                            xycoords="data",
-                            color="black",
-                            fontsize=12,
-                        )
-                    plt.show()
+                episode_img_path = f"{config.mp4_folder}{episode.episode_id}_{idx}.png"
+                episode_img_path = save_episode_to_img(
+                    episode=episode,
+                    episode_fov=batch_fov[idx][0].cpu(),
+                    episode_img_path=episode_img_path,
+                    config=config,
+                )
+                episode_img_group.append(episode_img_path)
+                last_episode_id = episode.episode_id
 
                 episode.reset()
 
@@ -333,3 +462,4 @@ def inference_and_plot_pre_train_policy(
                     "target_episodes": [e.episode_id for e in target_episodes],
                 }
             )
+    return episode_videos

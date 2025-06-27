@@ -15,6 +15,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from src.config import Config
 from src.episode import Episode
 from src.train_stage import TrainStage
+from src.policy_model_utils import save_checkpoint
 from src.episode_batch_repeat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeRLDataset
 from src.policy.policy_base import PolicyBaseModel
@@ -667,6 +668,12 @@ class GRPOTrainer:
                     step=train_step,
                     profile=profile,
                     debug=debug,
+                )
+                save_checkpoint(
+                    model=self.policy,
+                    epoch=epoch,
+                    lr_sched=self.learning_rate_scheduler,
+                    optimizer=self.optimizer,
                 )
 
                 # Eval - each epoch

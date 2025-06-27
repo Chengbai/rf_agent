@@ -1,5 +1,10 @@
+import shutil
+from pathlib import Path
+
 import torch
 import torch.nn.functional as F
+
+from src.config import Config
 
 
 def normalize_min_max(batch_logits):
@@ -74,3 +79,11 @@ def to_device_collate(device, batch: list[dict]):
         else:
             batched_data[key] = [item[key] for item in batch]
     return batched_data
+
+
+def clean_data_cache(config: Config):
+    # mp4
+    video_cache_root = Path(config.mp4_folder)
+    if video_cache_root.exists():
+        shutil.rmtree(config.mp4_folder)
+    video_cache_root.mkdir(parents=True, exist_ok=True)

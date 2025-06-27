@@ -222,7 +222,7 @@ class TransformerPolicy(nn.Module):
             == batch_cur_position.size(0)
             == batch_target_position.size(0)
         )
-        B, C, H, W = batch_fov.size()
+        B, C, H, W = batch_fov.size()  # B x C x Y-axis x X-axis
         batch_fov = batch_fov.permute(0, 2, 3, 1)  # B x H x W x C(1)
         batch_fov = batch_fov.to(dtype=torch.int)  # B x H x W x C(1)
 
@@ -246,8 +246,13 @@ class TransformerPolicy(nn.Module):
 
         feature = self.mlp(feature)  # B x Emb
 
+        # normalize the batch_cur_position and batch_target_position to [0, 1]
+        fov_hw = torch.tensor([H, W]).to(batch_cur_position.device)
+        batch_norm_cur_position = (batch_cur_position/fov_hw).to(torch.float)
+        batch_norm_target_position = (batch_target_position/fov_hw).to(torch.float)
+
         feature = torch.concat(
-            [batch_cur_position, batch_target_position, feature], dim=-1
+            [batch_norm_cur_position, batch_norm_target_position, feature], dim=-1
         )  # B x (Emb+4)
 
         logits = self.head(feature)

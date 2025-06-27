@@ -18,11 +18,12 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from src.config import Config
 from src.episode import Episode
-from src.episode_dataset import EpisodeRLDataset
+from src.episode_dataset import EpisodeSupervisedDataset
+from src.policy_model_utils import new_run_id, save_checkpoint
 from src.policy.policy_base import PolicyBaseModel
-from src.rl_data_record import RLDataRecord
 from src.utils import get_color, to_device_collate, top_k_sampling
 from src.reward_model import RewardModel
+from src.train_stage import TrainStage
 
 
 class PreTrainer:
@@ -45,12 +46,12 @@ class PreTrainer:
         self.criterion = nn.CrossEntropyLoss()
         self.writer = SummaryWriter()
 
-    def get_data_loader(self, dataset: EpisodeRLDataset) -> DataLoader:
+    def get_data_loader(self, dataset: EpisodeSupervisedDataset) -> DataLoader:
         assert dataset is not None
 
         shuffle = True
         if dataset.split == "TRAIN":
-            batch_size = self.config.train_batch_size
+            batch_size = self.config.pre_train_batch_size
         elif dataset.split == "TEST":
             shuffle = False
             batch_size = self.config.test_batch_size
@@ -63,7 +64,7 @@ class PreTrainer:
 
         dataloader = DataLoader(
             dataset,
-            batch_size=batch_size * self.config.episode_group_size,
+            batch_size=batch_size,
             # pin_memory=True,
             collate_fn=to_device_collate_configurable,
             shuffle=shuffle,
@@ -72,7 +73,7 @@ class PreTrainer:
 
     def _run_train(
         self,
-        dataset: EpisodeRLDataset,
+        dataset: EpisodeSupervisedDataset,
         dataloader: DataLoader,
         epoch: int,
         step: int,
@@ -139,7 +140,7 @@ class PreTrainer:
     def _run_eval(
         self,
         epoch: int,
-        dataset: EpisodeRLDataset,
+        dataset: EpisodeSupervisedDataset,
         dataloader: DataLoader,
         step: int,
         debug: bool,
@@ -199,8 +200,8 @@ class PreTrainer:
 
     def run(
         self,
-        train_dataset: EpisodeRLDataset,
-        eval_dataset: EpisodeRLDataset,
+        train_dataset: EpisodeSupervisedDataset,
+        eval_dataset: EpisodeSupervisedDataset,
         run_profile: bool = False,
         debug: bool = False,
     ):
@@ -214,7 +215,7 @@ class PreTrainer:
         train_dataloader = self.get_data_loader(dataset=train_dataset)
         eval_dataloader = self.get_data_loader(dataset=eval_dataset)
 
-        total_steps = self.config.epoches * len(train_dataloader)
+        total_steps = self.config.pre_train_epochs * len(train_dataloader)
         warmup_steps = 0
         # Cosine annealing scheduler
         self.learning_rate_scheduler = CosineAnnealingLR(
@@ -225,12 +226,15 @@ class PreTrainer:
             f"train_dataloader: {len(train_dataloader)}, eval_dataloader: {len(eval_dataloader)}"
         )
 
+        run_id = new_run_id()
+        print(f"run_id: {run_id}")
+
         def _run_internal(profile: torch.profiler.profile = None):
             # torch.autograd.set_detect_anomaly(True)
             self.policy.train()
             eval_step = 0
             train_step = 0
-            for epoch in range(self.config.epoches):
+            for epoch in range(self.config.pre_train_epochs):
                 train_step = self._run_train(
                     dataset=train_dataset,
                     dataloader=train_dataloader,
@@ -238,6 +242,14 @@ class PreTrainer:
                     step=train_step,
                     profile=profile,
                     debug=debug,
+                )
+                save_checkpoint(
+                    run_id=run_id,
+                    train_stage=TrainStage.PRE_TRAIN,
+                    model=self.policy,
+                    epoch=epoch,
+                    lr_sched=self.learning_rate_scheduler,
+                    optimizer=self.optimizer,
                 )
 
                 # Eval - each epoch

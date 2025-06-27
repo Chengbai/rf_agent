@@ -21,8 +21,9 @@ class Config:
     world_block_probability = 0.3
 
     # Dataset
-    train_dataset_length: int = 105000
+    train_dataset_length: int = 300000
     train_batch_size: int = 150
+    pre_train_batch_size: int = 250
     assert train_dataset_length % train_batch_size == 0
 
     test_dataset_length: int = 100
@@ -34,15 +35,13 @@ class Config:
     # Actions
     possible_actions: torch.tensor = field(
         default_factory=lambda: torch.tensor(
-            [(1 * i, 1 * j) for i in range(-1, 2) for j in range(-1, 2)],
+            [(i, j) for i in range(-1, 2) for j in range(-1, 2)],
             device=Config.device,
         )
     )
     action_to_idx: dict = field(
         default_factory=lambda: {
-            (1 * i, 1 * j): ((i + 1) * 3 + (j + 1))
-            for i in range(-1, 2)
-            for j in range(-1, 2)
+            (i, j): ((i + 1) * 3 + (j + 1)) for i in range(-1, 2) for j in range(-1, 2)
         }
     )
 
@@ -58,7 +57,7 @@ class Config:
     ENCODE_EMPTY: int = 255
 
     ENCODE_NUM_EMBEEDING: int = ENCODE_EMPTY + 1
-    ENCODE_EMBEEDING_DIM: int = 3
+    ENCODE_EMBEEDING_DIM: int = 5
 
     ENCODE_COLORS = ["red", "black", "blue", "green", "white"]
     CMAP = ListedColormap(ENCODE_COLORS)
@@ -81,8 +80,9 @@ class Config:
     # Train / Eval / Test
     grpo_lr = 1.0  # GRPO use
     fine_tune_lr = 1e-2
-    pre_train_lr = 5e-3  # Pre-train
     epoches: int = 2
+    pre_train_lr = 5e-3  # Pre-train
+    pre_train_epochs = 10
     episode_group_size: int = 8
     episode_steps: int = 20
     # episodes_per_iteration: int = 2
@@ -109,5 +109,8 @@ class Config:
         world_width // img_kernel_size
     )
     transformer_block_layer1: int = 2 * qk_projection
-    transformer_blocks = 3
+    transformer_blocks = 10
     trunk_features: int = 50
+
+    # local cache
+    mp4_folder: str = "/tmp/mp4/"
