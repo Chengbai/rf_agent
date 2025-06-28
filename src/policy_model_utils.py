@@ -6,18 +6,21 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timezone
 from pathlib import Path
 from PIL import Image
+from tqdm import tqdm
 
 import torch
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
-from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+import torchvision
+
 
 from src.action import Action
 from src.config import Config
 from src.episode import Episode
-from src.episode_dataset import EpisodeRLDataset
+from src.episode_dataset import EpisodeDataset, EpisodeRLDataset
 from src.policy.policy_base import PolicyBaseModel
 from src.policy_factory import PolicyMode, PolicyFactory
 from src.reward_model import RewardModel
@@ -334,7 +337,7 @@ def save_imgs_to_video(episode_img_group: list[str], episode_video_path: str):
 
 def inference_and_plot_pre_train_policy(
     config: Config,
-    dataset: EpisodeRLDataset,
+    dataset: EpisodeDataset,
     dataloader: DataLoader,
     policy: PolicyBaseModel,
     steps: int,
@@ -463,3 +466,22 @@ def inference_and_plot_pre_train_policy(
                 }
             )
     return episode_videos
+
+
+def add_video_to_tensorboard(
+    video_path: str, writer: SummaryWriter, tag: str, global_step: int
+):
+    assert Path(video_path).exists()
+    assert writer is not None
+    # frames: (T x H x W x C)
+    # metadata: {'video_fps': 2.0}
+    frames, _, metadata = torchvision.io.read_video(video_path)
+    fps = metadata.get("video_fps", 24)
+
+    # vid_tensor: (N,T,C,H,W)
+    vid_tensor = torch.permute(frames, (0, 3, 1, 2))  # (T, C, H, W)
+    vid_tensor = vid_tensor[None, ...]  # (1 x T x C x H x W)
+
+    writer.add_video(
+        tag=tag, vid_tensor=vid_tensor, global_step=global_step, fps=fps, walltime=None
+    )

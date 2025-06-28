@@ -19,7 +19,12 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from src.config import Config
 from src.episode import Episode
 from src.episode_dataset import EpisodeSupervisedDataset
-from src.policy_model_utils import new_run_id, save_checkpoint
+from src.policy_model_utils import (
+    new_run_id,
+    save_checkpoint,
+    add_video_to_tensorboard,
+    inference_and_plot_pre_train_policy,
+)
 from src.policy.policy_base import PolicyBaseModel
 from src.utils import get_color, to_device_collate, top_k_sampling
 from src.reward_model import RewardModel
@@ -261,6 +266,22 @@ class PreTrainer:
                         step=eval_step,
                         debug=debug,
                     )
+
+                    # create video on eval dataset and save into the tensorboard
+                    episode_videos = inference_and_plot_pre_train_policy(
+                        config=self.config,
+                        dataset=eval_dataset,
+                        dataloader=eval_dataloader,
+                        policy=self.policy,
+                        steps=20,
+                    )
+                    for i, episode_video in enumerate(episode_videos):
+                        add_video_to_tensorboard(
+                            video_path=episode_video,
+                            writer=self.writer,
+                            tag=f"eval:{epoch}_{eval_step}_{i}",
+                            global_step=eval_step,
+                        )
                 finally:
                     # reset to the train mode
                     self.policy.train()
