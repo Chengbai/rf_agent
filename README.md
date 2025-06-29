@@ -64,6 +64,15 @@ ____
     <img src="doc/example_solution_transformer2-2.png" alt="Topk=2 (Test)" width="600">
 </p>
 
+* Example from PRE-TRAIN + SF** 
+<p align="center">
+<video width="600" controls autoplay>
+  <source src="doc/example_solution_pre-train_20250629_01.mp4" type="video/mp4">
+  PRE-TRAIN + SF-2Epochs
+</video>
+</p>
+
+
 ## GRPO-Cheng Trainer
 ---
 <p align="center">
