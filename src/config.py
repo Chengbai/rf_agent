@@ -21,7 +21,7 @@ class Config:
     world_block_probability = 0.3
 
     # Dataset
-    train_dataset_length: int = 300000
+    train_dataset_length: int = 1_050_000
     train_batch_size: int = 150
     pre_train_batch_size: int = 250
     assert train_dataset_length % train_batch_size == 0
@@ -81,8 +81,8 @@ class Config:
     grpo_lr = 1.0  # GRPO use
     fine_tune_lr = 1e-2
     epoches: int = 2
-    pre_train_lr = 5e-3  # Pre-train
-    pre_train_epochs = 10
+    pre_train_lr = 5e-4  # Pre-train
+    pre_train_epochs = 2
     episode_group_size: int = 8
     episode_steps: int = 20
     # episodes_per_iteration: int = 2
