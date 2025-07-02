@@ -5,6 +5,8 @@ This module is created on 2025
 import matplotlib
 import matplotlib.cm as cm
 import torch
+import torch.nn.functional as F
+import torchvision.transforms.functional as VF
 
 from src.config import Config
 from src.reward_model import RewardModel
@@ -30,7 +32,16 @@ class RLDataRecord:
         self.batch_agent_start_pos = batch_data_items["agent_start_pos"]
         self.batch_agent_target_pos = batch_data_items["agent_target_pos"]
         self.batch_agent_current_pos = batch_data_items["agent_current_pos"]
+        self.batch_agent_current_pos_block_mask = batch_data_items[
+            "agent_current_pos_block_mask"
+        ]
         self.fov = batch_data_items["fov"].clone()
+        self.fov_padding = F.pad(
+            input=self.fov,
+            pad=(1, 1, 1, 1),
+            value=self.config.ENCODE_BLOCK,
+            mode="constant",
+        )
         self.fov_block_mask = batch_data_items["fov_block_mask"].clone()
         self.batch_action_idx_history = None
         self.batch_logit_prob_history = None
@@ -111,6 +122,19 @@ class RLDataRecord:
         self.fov[torch.arange(B), y_indices, x_indices] = (
             self.config.ENCODE_START_STEP_IDX + step  # Row - Y-axis, Col - X-axis
         )
+
+        # Update the batch_agent_current_pos_block_mask
+        self.batch_agent_current_pos_block_mask = torch.vstack(
+            [
+                self.fov_padding[
+                    i,
+                    y_indices[i] : y_indices[i] + 3,
+                    x_indices[i] : x_indices[i] + 3,
+                ]
+                == self.config.ENCODE_BLOCK
+                for i in range(len(x_indices))
+            ]
+        ).reshape((B, 3, 3))
 
         # Save the history -- batch_action_idx
         if self.batch_action_idx_history is None:

@@ -96,11 +96,15 @@ class PreTrainer:
                 batch_cur_position: torch.Tensor = batch_data["agent_current_pos"]
                 batch_target_position: torch.Tensor = batch_data["agent_target_pos"]
                 batch_best_next_pos: torch.Tensor = batch_data["best_next_pos"]
+                batch_agent_current_pos_block_mask: torch.Tensor = batch_data[
+                    "agent_current_pos_block_mask"
+                ]
                 batch_best_next_action: torch.Tensor = batch_data["best_next_action"]
                 batch_logits = self.policy(
                     batch_fov=batch_fov,
                     batch_cur_position=batch_cur_position,
                     batch_target_position=batch_target_position,
+                    batch_agent_current_pos_block_mask=batch_agent_current_pos_block_mask,
                 )
                 batch_probability = F.softmax(batch_logits, dim=1)
                 if self.writer is not None:
@@ -168,10 +172,14 @@ class PreTrainer:
                     batch_best_next_action: torch.Tensor = batch_data[
                         "best_next_action"
                     ]
+                    batch_agent_current_pos_block_mask: torch.Tensor = batch_data[
+                        "agent_current_pos_block_mask"
+                    ]
                     batch_logits = self.policy(
                         batch_fov=batch_fov,
                         batch_cur_position=batch_cur_position,
                         batch_target_position=batch_target_position,
+                        batch_agent_current_pos_block_mask=batch_agent_current_pos_block_mask,
                     )
                     batch_probability = F.softmax(batch_logits, dim=1)
                     if self.writer is not None:

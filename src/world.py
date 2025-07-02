@@ -96,7 +96,9 @@ class World:
     def get_center(self) -> torch.Tensor:
         return self.center
 
-    def fov(self, center_pos: torch.tensor) -> torch.tensor:
+    def fov(
+        self, center_pos: torch.tensor, size: tuple[int, int] = None
+    ) -> torch.tensor:
         assert center_pos is not None
         assert center_pos.size()[-1] == 2
 
@@ -115,24 +117,29 @@ class World:
             |------------------|-> X-axis
         (sX-FOV-1, sY-FOV-1)   (sX+FOV, sY-FOV-1)
         """
+        if size is None:
+            size = (
+                self.config.field_of_view_height,
+                self.config.field_of_view_width,
+            )  # H/2 x W/2
 
         top_left_pos = center_pos + torch.tensor(
             [
-                -self.config.field_of_view_height,
-                -self.config.field_of_view_width,
+                -size[0],
+                -size[1],
             ]
         )
 
-        sy = int(top_left_pos[0])  # Rows -> y-axis
-        sx = int(top_left_pos[1])  # Columns -> x-axis
+        sy = int(top_left_pos[1])  # Rows -> y-axis
+        sx = int(top_left_pos[0])  # Columns -> x-axis
         fov_tensor = F.crop(
             img=self.world_board_with_fov_padding,
             top=sy
             + self.config.field_of_view_height,  # because padding all 4 sides with `field_of_view`
             left=sx
             + self.config.field_of_view_width,  # because padding all 4 sides with `field_of_view`
-            height=2 * self.config.field_of_view_height,
-            width=2 * self.config.field_of_view_width,
+            height=2 * size[0],
+            width=2 * size[1],
         )
 
         return fov_tensor.clone()

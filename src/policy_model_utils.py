@@ -355,7 +355,7 @@ def inference_and_plot_pre_train_policy(
         batch_rl_data_record = None
         for batch_idx, batch_data in enumerate(t):
             # step = epoch * len(train_dataloader) + batch_idx
-            if batch_idx >= 3:
+            if batch_idx >= 10:
                 # only viz the first 4 batches
                 break
 
@@ -365,6 +365,9 @@ def inference_and_plot_pre_train_policy(
             batch_target_position: torch.Tensor = batch_data["agent_target_pos"]
             batch_best_next_pos: torch.Tensor = batch_data["best_next_pos"]
             batch_best_next_action: torch.Tensor = batch_data["best_next_action"]
+            batch_agent_current_pos_block_mask: torch.Tensor = batch_data[
+                "agent_current_pos_block_mask"
+            ]
 
             batch_origin_cur_position = batch_cur_position.clone()
             batch_origin_batch_fov = batch_fov.clone()
@@ -373,6 +376,7 @@ def inference_and_plot_pre_train_policy(
                     batch_fov=batch_origin_batch_fov,
                     batch_cur_position=batch_cur_position,
                     batch_target_position=batch_target_position,
+                    batch_agent_current_pos_block_mask=batch_agent_current_pos_block_mask,
                 )
 
                 batch_action_idx, batch_logit_prob, batch_top_k_prob = top_k_sampling(

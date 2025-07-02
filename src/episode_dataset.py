@@ -120,11 +120,22 @@ class EpisodeSupervisedDataset(EpisodeDataset):
         best_next_pos: torch.Tensor = target_episode.best_path[
             offset_from_episode_start_index
         ]
+
         agent_current_pos: torch.Tensor = (
             target_episode.agent.start_state.position()
             if offset_from_episode_start_index == 0
             else target_episode.best_path[offset_from_episode_start_index - 1]
         )
+        agent_current_pos_block_mask: torch.Tensor = (
+            target_episode.block_mask(
+                center_pos=target_episode.agent.start_state.position()
+            )
+            if offset_from_episode_start_index == 0
+            else target_episode.best_path_block_masks[
+                offset_from_episode_start_index - 1
+            ]
+        )
+
         best_next_action = torch.tensor(
             self.config.action_to_idx[
                 tuple((best_next_pos - agent_current_pos).to(torch.int).tolist())
@@ -136,6 +147,7 @@ class EpisodeSupervisedDataset(EpisodeDataset):
             "agent_start_pos": target_episode.agent.start_state.position(),
             "agent_target_pos": target_episode.agent.target_state.position(),
             "agent_current_pos": agent_current_pos,
+            "agent_current_pos_block_mask": agent_current_pos_block_mask,  # 3 x 3
             "best_next_pos": best_next_pos,
             "best_next_action": best_next_action,
             # "world_id": target_episode.world.world_id,
@@ -218,6 +230,9 @@ class EpisodeRLDataset(EpisodeDataset):
             "agent_start_pos": target_episode.agent.start_state.position(),
             "agent_target_pos": target_episode.agent.target_state.position(),
             "agent_current_pos": target_episode.agent.current_state.position(),
+            "agent_current_pos_block_mask": target_episode.block_mask(
+                center_pos=target_episode.agent.current_state.position()
+            ),
             # "best_path": target_episode.best_path,
             # "world_id": target_episode.world.world_id,
             # "position": target_episode.agent.current_state.position(),

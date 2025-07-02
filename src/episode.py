@@ -30,6 +30,7 @@ class Episode:
     world: World
     agent: Agent
     best_path: torch.Tensor = None
+    best_path_block_masks: torch.Tensor = None
 
     @staticmethod
     def new(episode_id: str) -> Episode:
@@ -98,10 +99,28 @@ class Episode:
         )
 
     def __post_init__(self):
-        self.init_best_path()
+        self.init_best_path().init_best_path_block_mask()
 
     def init_best_path(self) -> Episode:
         self.best_path = self.optimal_path()
+        return self
+
+    def init_best_path_block_mask(self) -> Episode:
+        if self.best_path is None:
+            return self
+
+        best_path_block_masks = []
+        for pos in self.best_path:
+            mask = self.block_mask(center_pos=pos)
+            best_path_block_masks.append(mask)
+
+        assert len(best_path_block_masks) > 0
+        self.best_path_block_masks = torch.stack(best_path_block_masks, dim=0)
+        assert self.best_path_block_masks.shape == (
+            len(self.best_path),
+            3,
+            3,
+        )  # N x 3 x 3
         return self
 
     def clone(self, repeat: int) -> list[Episode]:
@@ -231,6 +250,18 @@ class Episode:
             world_fov[sx, sy] = self.config.ENCODE_START_STEP_IDX
 
         return world_fov
+
+    def block_mask(self, center_pos: torch.Tensor) -> torch.Tensor:
+        world_fov = self.world.fov(center_pos=center_pos, size=(2, 2))  # 4x4
+        # print(f"world_fov: {world_fov}")
+        mask = world_fov == self.config.ENCODE_BLOCK
+        return mask[1:, 1:]
+
+    def viz_block_mask(self, center_pos: torch.Tensor, ax: matplotlib.axes._axes.Axes):
+        assert ax is not None
+        # mask = self.block_mask(center_pos=center_pos)
+        mask = self.best_path_block_masks[0]
+        ax.pcolormesh(~mask, cmap=self.config.CMAP, edgecolors="gray", linewidths=0.5)
 
     def viz(
         self,
@@ -372,3 +403,4 @@ class Episode:
                         )
                     )
         return torch.tensor(best_path) if best_path else None
+        r

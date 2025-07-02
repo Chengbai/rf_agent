@@ -156,7 +156,7 @@ class TransformerPolicy(nn.Module):
                     (
                         "trunk1",
                         nn.Linear(
-                            config.trunk_features + 4,
+                            config.trunk_features + 13,
                             config.trunk_features,
                         ),
                     ),
@@ -190,24 +190,38 @@ class TransformerPolicy(nn.Module):
         batch_fov = batch_rl_data_record.fov2d()
         batch_cur_position = batch_rl_data_record.batch_agent_current_pos
         batch_target_position = batch_rl_data_record.batch_agent_target_pos
+        batch_agent_current_pos_block_mask = (
+            batch_rl_data_record.batch_agent_current_pos_block_mask
+        )
 
-        return batch_fov, batch_cur_position, batch_target_position
+        return (
+            batch_fov,
+            batch_cur_position,
+            batch_agent_current_pos_block_mask,
+            batch_target_position,
+        )
 
     def execute_1_step(self, batch_rl_data_record: RLDataRecord) -> torch.Tensor:
-        batch_fov, batch_cur_position, batch_target_position = self.prepare_feature(
-            batch_rl_data_record=batch_rl_data_record
-        )
+        (
+            batch_fov,
+            batch_cur_position,
+            batch_agent_current_pos_block_mask,
+            batch_target_position,
+        ) = self.prepare_feature(batch_rl_data_record=batch_rl_data_record)
         assert batch_fov is not None
         assert batch_cur_position is not None
         assert batch_target_position is not None
+        assert batch_agent_current_pos_block_mask is not None
         assert (
             batch_fov.size(0)
             == batch_cur_position.size(0)
             == batch_target_position.size(0)
+            == batch_agent_current_pos_block_mask.size(0)
         )
         return self.forward(
             batch_fov=batch_fov,
             batch_cur_position=batch_cur_position,
+            batch_agent_current_pos_block_mask=batch_agent_current_pos_block_mask,
             batch_target_position=batch_target_position,
         )
 
@@ -215,12 +229,14 @@ class TransformerPolicy(nn.Module):
         self,
         batch_fov: torch.Tensor,
         batch_cur_position: torch.Tensor,
+        batch_agent_current_pos_block_mask: torch.Tensor,
         batch_target_position: torch.Tensor,
     ) -> torch.Tensor:
         assert (
             batch_fov.size(0)
             == batch_cur_position.size(0)
             == batch_target_position.size(0)
+            == batch_agent_current_pos_block_mask.size(0)
         )
         B, C, H, W = batch_fov.size()  # B x C x Y-axis x X-axis
         batch_fov = batch_fov.permute(0, 2, 3, 1)  # B x H x W x C(1)
@@ -248,12 +264,21 @@ class TransformerPolicy(nn.Module):
 
         # normalize the batch_cur_position and batch_target_position to [0, 1]
         fov_hw = torch.tensor([H, W]).to(batch_cur_position.device)
-        batch_norm_cur_position = (batch_cur_position/fov_hw).to(torch.float)
-        batch_norm_target_position = (batch_target_position/fov_hw).to(torch.float)
+        batch_norm_cur_position = (batch_cur_position / fov_hw).to(torch.float)
+        batch_norm_target_position = (batch_target_position / fov_hw).to(torch.float)
 
+        batch_agent_current_pos_block_mask = batch_agent_current_pos_block_mask.reshape(
+            (B, 9)
+        )
         feature = torch.concat(
-            [batch_norm_cur_position, batch_norm_target_position, feature], dim=-1
-        )  # B x (Emb+4)
+            [
+                batch_norm_cur_position,  # B x 2
+                batch_norm_target_position,  # B x 2
+                batch_agent_current_pos_block_mask,  # B x 3 x 3
+                feature,  # B x Emb
+            ],
+            dim=-1,
+        )  # B x (Emb+13)
 
         logits = self.head(feature)
         return logits  # B x 9 (possible_actions)

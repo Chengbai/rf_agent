@@ -9,7 +9,7 @@ from matplotlib.colors import ListedColormap
 @dataclass
 class Config:
     # Device
-    device = torch.device("mps")  # torch.device("mps")
+    device = torch.device("cpu")  # torch.device("mps")
 
     # world
     world_min_x: int = 0
@@ -21,15 +21,15 @@ class Config:
     world_block_probability = 0.3
 
     # Dataset
-    train_dataset_length: int = 1_050_000
+    train_dataset_length: int = 30_000  # 1_050_000
     train_batch_size: int = 150
     pre_train_batch_size: int = 250
     assert train_dataset_length % train_batch_size == 0
 
-    test_dataset_length: int = 100
+    test_dataset_length: int = 200
     test_batch_size: int = test_dataset_length // 5
 
-    eval_dataset_length: int = 500
+    eval_dataset_length: int = 1000
     eval_batch_size: int = eval_dataset_length // 5
 
     # Actions
@@ -79,7 +79,7 @@ class Config:
     # GRPO policy training
     # Train / Eval / Test
     grpo_lr = 1.0  # GRPO use
-    fine_tune_lr = 1e-2
+    fine_tune_lr = 1e-3
     epoches: int = 2
     pre_train_lr = 5e-4  # Pre-train
     pre_train_epochs = 2
