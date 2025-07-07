@@ -21,7 +21,9 @@ class Config:
     world_block_probability = 0.3
 
     # Dataset
-    train_dataset_length: int = 30_000  # 1_050_000
+    train_dataset_length: int = 300  # viz perf
+    # train_dataset_length: int = 45_000  # RL fine-tune
+    # train_dataset_length: int = 1_050_000 #SL pre-train
     train_batch_size: int = 150
     pre_train_batch_size: int = 250
     assert train_dataset_length % train_batch_size == 0

@@ -436,6 +436,27 @@ def inference_and_plot_pre_train_policy(
                     config.ENCODE_START_STEP_IDX + step  # Row - Y-axis, Col - X-axis
                 )
 
+                # Update the batch_agent_current_pos_block_mask
+                block_masks = []
+                for i in range(B):
+                    fov_padding = F.pad(
+                        input=batch_fov[i, 0],
+                        pad=(1, 1, 1, 1),
+                        value=config.ENCODE_BLOCK,
+                        mode="constant",
+                    )
+                    block_mask = (
+                        fov_padding[
+                            y_indices[i] : y_indices[i] + 3,
+                            x_indices[i] : x_indices[i] + 3,
+                        ]
+                        == config.ENCODE_BLOCK
+                    )
+                    block_masks.append(block_mask)
+                batch_agent_current_pos_block_mask = torch.vstack(block_masks).reshape(
+                    (B, 3, 3)
+                )  # B x 3 x 3
+
             # Update the episode voz + each step prediction
             target_episodes = dataset.get_episods(
                 batch_episode_indices=batch_episode_idx

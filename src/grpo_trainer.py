@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from src.config import Config
 from src.episode import Episode
 from src.train_stage import TrainStage
-from src.policy_model_utils import save_checkpoint
+from src.policy_model_utils import save_checkpoint, new_run_id
 from src.episode_batch_repeat_sampler import EpisodeBatchRepeatSampler
 from src.episode_dataset import EpisodeRLDataset
 from src.policy.policy_base import PolicyBaseModel
@@ -654,6 +654,8 @@ class GRPOTrainer:
         print(
             f"train_dataloader: {len(train_dataloader)}, eval_dataloader: {len(eval_dataloader)}"
         )
+        run_id = new_run_id()
+        print(f"run_id: {run_id}")
 
         def _run_internal(profile: torch.profiler.profile = None):
             # torch.autograd.set_detect_anomaly(True)
@@ -670,6 +672,8 @@ class GRPOTrainer:
                     debug=debug,
                 )
                 save_checkpoint(
+                    run_id=run_id,
+                    train_stage=TrainStage.FINE_TUNE_STAGE_1,
                     model=self.policy,
                     epoch=epoch,
                     lr_sched=self.learning_rate_scheduler,
