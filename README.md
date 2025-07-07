@@ -65,9 +65,9 @@ ____
 </p>
 
 
-* Example from PRE-TRAIN + SF
+* Example from PRE-TRAIN + GRPO-RL-Fine-Tune
 
-https://github.com/user-attachments/assets/e8139284-07c1-4cbb-8497-91586e5a87aa
+https://github.com/user-attachments/assets/1bf95a8e-4f15-47f1-9930-e7c86858bda9
 
 
 
